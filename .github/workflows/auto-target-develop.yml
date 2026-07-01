@@ -1,0 +1,35 @@
+name: Auto Target Develop
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  route-prs:
+    name: Route PRs to Develop
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    if: github.base_ref == 'main' && github.head_ref != 'develop'
+    steps:
+      - name: Reroute Base and Comment
+        run: |
+          set -e
+
+          RESPONSE=$(curl -s -w "%{http_code}" -o /tmp/response.json -X PATCH \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }} \
+            -d '{"base":"develop"}')
+
+          if [ "$RESPONSE" -ne 200 ]; then
+            echo "::error::Failed to reroute PR base branch. HTTP $RESPONSE"
+            cat /tmp/response.json
+            exit 1
+          fi
+
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            -d '{"body":"**Base branch auto-updated:** This PR has been redirected from `main` to `develop`. Please ensure feature, fix, or chore branches are integrated into `develop` before production releases."}'

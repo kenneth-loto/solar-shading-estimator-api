@@ -1,0 +1,15 @@
+# compiled output
+/dist
+/node_modules
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# Tests
+/coverage
+/.nyc_output
