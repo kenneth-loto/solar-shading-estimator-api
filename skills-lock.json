@@ -7,6 +7,12 @@
       "skillPath": "skills/architect/SKILL.md",
       "computedHash": "686bd8b5606ad628da5cceced15b9c5155bff8f1666c7f8d0cd498fdd34dbb3f"
     },
+    "nestjs-jest-prisma-testing": {
+      "source": "kenneth-loto/skills",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs/nestjs-jest-prisma-testing/SKILL.md",
+      "computedHash": "1a99a2c92ac6887ce46e17d0457dafb13b24a5df9294884ea556b916aa20f62b"
+    },
     "nestjs-patterns": {
       "source": "kenneth-loto/skills",
       "sourceType": "github",

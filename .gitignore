@@ -13,3 +13,12 @@ yarn-error.log*
 # Tests
 /coverage
 /.nyc_output
+
+# env
+.env
+.env.local
+
+/src/generated/prisma
+
+# session memory
+MEMORY.md

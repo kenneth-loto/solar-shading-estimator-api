@@ -11,6 +11,25 @@ obstruction model.** No 3D geometry, no per-panel modeling, no LIDAR.
 
 ---
 
+## Finalized Decisions
+
+- **Horizon profile lives on the `Site`, not per-analysis-request.**
+  Obstructions are a physical property of the location (same category as
+  tilt/azimuth) — they don't change between analysis runs. The analysis
+  endpoint just takes a `siteId`.
+- **Database: Prisma + PostgreSQL**, provisioned via Render's managed
+  Postgres. Chosen up front (rather than SQLite) since deployment target
+  is Render — avoids a later migration.
+- **Cache: in-memory for MVP**, via Nest's `CacheModule`
+  (`@nestjs/cache-manager`) rather than a raw hand-rolled `Map`.
+  `cache-manager` supports pluggable stores, so swapping in a hosted Redis
+  (e.g. Upstash) later — if cold-starts/restarts on Render become an
+  issue — is a config change, not a rewrite. No Redis/Upstash for MVP.
+- **Deployment target: Render.** Web service (Nest API) + managed Postgres
+  add-on.
+
+---
+
 ## Overall Progress
 
 - [ ] 1. Site Management
@@ -30,13 +49,16 @@ Create and store a "site" — the thing a user runs analysis against.
 **Tasks:**
 
 - [ ] Define `Site` entity/schema: name, latitude, longitude, panel tilt
-      (degrees), panel azimuth (degrees, 0–360), system size (kW)
+      (degrees), panel azimuth (degrees, 0–360), system size (kW),
+      horizon profile (JSON: array of `{ direction, heightAngle }`)
+- [ ] Set up Prisma with PostgreSQL, define `Site` model in `schema.prisma`
 - [ ] `POST /sites` — create
 - [ ] `GET /sites` — list
 - [ ] `GET /sites/:id` — get by id
 - [ ] `PATCH /sites/:id` — update
 - [ ] `DELETE /sites/:id` — delete
-- [ ] Add validation: lat/lon within valid ranges, tilt 0–90, azimuth 0–360
+- [ ] Add validation: lat/lon within valid ranges, tilt 0–90, azimuth 0–360,
+      horizon profile heightAngle 0–90
 
 **Notes:**
 
@@ -50,9 +72,9 @@ Pull historical solar irradiance for a site's coordinates.
 
 - [ ] Build `irradiance/` module wrapping the NASA POWER Daily API
       (lat/lon + date range in)
-- [ ] Implement caching keyed by (lat/lon rounded to grid, date range)
+- [ ] Implement caching via Nest's `CacheModule` (in-memory store for MVP),
+      keyed by (lat/lon rounded to grid, date range)
 - [ ] Limit to daily resolution only for MVP (no hourly)
-- [ ] Store fetched/cached results (in-memory or simple DB table is fine)
 
 **Notes:**
 
@@ -128,7 +150,7 @@ Tie it together into one result.
 **Tasks:**
 
 - [ ] `POST /sites/:id/analysis` — orchestrates fetch → PVWatts →
-      shading calc pipeline
+      shading calc pipeline, using the site's stored horizon profile
 - [ ] Return combined report: baseline (unshaded) annual/monthly kWh,
       estimated shading loss %, adjusted (realistic) kWh estimate,
       sample-day shading breakdown
@@ -161,8 +183,9 @@ Tie it together into one result.
 
 ## Suggested Nest Module Breakdown
 
-- `sites/` — CRUD, validation
-- `irradiance/` — NASA POWER client + caching
+- `sites/` — CRUD, validation (includes horizon profile as part of Site)
+- `prisma/` — Prisma service/client wiring (Postgres via Render)
+- `irradiance/` — NASA POWER client + `CacheModule` caching
 - `pvwatts/` — PVWatts client
 - `shading/` — solar position math + horizon comparison (pure logic, no
   external calls — easiest to unit test)
