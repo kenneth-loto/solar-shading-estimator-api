@@ -23,6 +23,11 @@ This is a portfolio/learning project built to:
 ## Tech stack
 
 - **Backend:** NestJS (TypeScript)
+- **Database:** PostgreSQL via [Prisma](https://www.prisma.io/) ORM
+- **Caching:** Nest's `CacheModule` (in-memory store for MVP; pluggable
+  to a hosted store like Upstash later without a rewrite)
+- **Deployment:** [Render](https://render.com/) — web service + managed
+  Postgres add-on
 - **External data sources:**
   - [NASA POWER API](https://power.larc.nasa.gov/) — historical solar
     irradiance and meteorology data for any coordinate. Free, no API key.
@@ -33,8 +38,6 @@ This is a portfolio/learning project built to:
 - **Solar position math:** [`suncalc`](https://github.com/mourner/suncalc)
   for sun elevation/azimuth calculations, rather than hand-rolled
   astronomy — keeps the focus on backend architecture.
-- **Database:** TBD (lightweight — SQLite/Postgres, mainly for storing
-  sites and cached irradiance responses)
 - **Frontend:** none for MVP — this is an API-first project. A minimal
   frontend may be added later (see Limitations).
 
@@ -45,7 +48,7 @@ This is a portfolio/learning project built to:
 2. Pull historical solar irradiance for that location from NASA POWER.
 3. Get a baseline (unshaded) production estimate from PVWatts.
 4. Apply a simplified shading model based on a rough obstruction profile
-   the user provides (e.g., "there's something 20° tall to the east").
+   stored on the site (e.g., "there's something 20° tall to the east").
 5. Return a combined report: baseline output, estimated shading loss %,
    and an adjusted, more realistic production estimate.
 
