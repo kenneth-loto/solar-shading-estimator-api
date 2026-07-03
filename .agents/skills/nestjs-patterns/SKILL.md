@@ -23,9 +23,14 @@ src/
 │   └── pipes/             # Custom validation pipes
 ├── lib/                   # Infrastructure modules (database, mail, cache, etc.)
 │   └── database/          # e.g. prisma.module.ts + prisma.service.ts
+├── utils/                 # Framework-agnostic pure utility functions
+│   ├── math.ts            # e.g. rounding helpers
+│   ├── date.ts            # date formatting helpers
+│   └── string.ts          # string manipulation
 └── module/                # Feature modules
     ├── users/
-    │   ├── dto/
+    │   ├── dto/           # classes with class-validator decorators
+    │   ├── interfaces/    # TypeScript interfaces and types
     │   ├── users.controller.ts
     │   ├── users.service.ts
     │   ├── users.module.ts
@@ -33,7 +38,7 @@ src/
     └── posts/
 ```
 
-**Rule:** Feature modules go in `src/module/<name>/`. Infrastructure (database, mail, cache) goes in `src/lib/<name>/`. Shared guards, interceptors, decorators, and filters go in `src/common/<category>/`.
+**Rule:** Feature modules go in `src/module/<name>/`. Infrastructure (database, mail, cache) goes in `src/lib/<name>/`. Shared guards, interceptors, decorators, and filters go in `src/common/<category>/`. Pure utility functions with no NestJS dependency go in `src/utils/`.
 
 ## Module Patterns
 
@@ -67,7 +72,7 @@ export class DatabaseModule {}
 
 ```typescript
 @Module({
-  imports: [TasksModule], // import when you need to inject TasksService
+  imports: [TasksModule],   // import when you need to inject TasksService
   controllers: [CommentsController],
   providers: [CommentsService],
 })
@@ -176,32 +181,30 @@ export class UsersController {
 }
 ```
 
-### Route Ordering — Static before Dynamic
-NestJS evaluates route handlers top-to-bottom in the order they are defined. Always put static routes before parameterized dynamic routes.
+### Route ordering — static before dynamic
+
+NestJS evaluates route handlers top-to-bottom in the order they are defined. Always put static routes before parameterized dynamic routes — otherwise a request to `/users/all` matches `:id` with the value `"all"` before it reaches the `findAll` handler.
 
 ```typescript
 @Controller("users")
 export class UsersController {
-  // 1. Static routes go first
+  // 1. Static routes first
   @Get("all")
   findAll() {
     return this.usersService.findAll();
   }
 
-  // 2. Dynamic/parameterized routes go last
+  // 2. Dynamic/parameterized routes last
   @Get(":id")
   findById(@Param("id") id: string) {
     return this.usersService.findById(id);
   }
 }
+```
 
 ### Scoped access — the `@CurrentUser()` decorator
 
-When handlers need the authenticated user, don't read `req.user` directly.
-`req.user` is typed as `Express.User | undefined` — accessing it with `!`
-is a non-null assertion that Biome flags and strict TypeScript rejects.
-Repeating `if (!user) throw new UnauthorizedException()` across every
-handler is boilerplate that belongs in one place.
+When handlers need the authenticated user, don't read `req.user` directly. `req.user` is typed as `Express.User | undefined` — accessing it with `!` is a non-null assertion that strict TypeScript and Biome reject. Repeating `if (!user) throw new UnauthorizedException()` across every handler is boilerplate that belongs in one place.
 
 The correct pattern is a `@CurrentUser()` param decorator:
 
@@ -227,14 +230,11 @@ findAll(
   @Param("projectId") projectId: string,
   @CurrentUser() user: Express.User,
 ) {
-  return this.taskService.findByProject(projectId, user.id, user.role);
+  return this.tasksService.findByProject(projectId, user.id, user.role);
 }
 ```
 
-TypeScript knows `user` is `Express.User` — not `Express.User | undefined`.
-The decorator handles the unauthorized case in one place. If a `@Public()`
-route accidentally tries to use `@CurrentUser()`, it throws a clean 401
-instead of crashing on an undefined access.
+TypeScript knows `user` is `Express.User` — not `Express.User | undefined`. The decorator handles the unauthorized case in one place. If a `@Public()` route accidentally uses `@CurrentUser()`, it throws a clean 401 instead of crashing on an undefined access.
 
 ### Nested route params
 
@@ -312,9 +312,43 @@ throw new ConflictException("Email already in use");
 
 NestJS's `HttpException` subclasses carry the status code, integrate with exception filters, and produce consistent error shapes. Raw errors bypass all of this.
 
-## DTOs
+## DTOs and Interfaces
 
-DTOs are classes, not interfaces. Class-based DTOs survive TypeScript compilation and can carry runtime decorator metadata — interfaces don't.
+### The distinction
+
+```
+module/<name>/
+├── dto/          # classes with class-validator decorators — request/response contracts
+├── interfaces/   # TypeScript interfaces and types — internal contracts, API shapes
+```
+
+DTOs are **classes** — they survive TypeScript compilation and carry runtime decorator metadata used by `ValidationPipe`. Interfaces are **compile-time only** — they exist for type safety but have no runtime presence. Never use an interface where a DTO is needed, and never clutter a DTO file with interface definitions.
+
+Don't define interfaces inline in service files — they get buried, can't be imported cleanly by other modules, and blur the line between runtime and compile-time concerns.
+
+```typescript
+// interfaces/nasa.interface.ts — compile-time types for an external API shape
+export interface NasaPowerResponse {
+  properties: {
+    parameter: { ALLSKY_SFC_SW_DWN: Record<string, number | null> };
+    latitude: number;
+    longitude: number;
+  };
+}
+
+export interface IrradianceResult {
+  latitude: number;
+  longitude: number;
+  data: Record<string, number | null>;
+}
+```
+
+```typescript
+// irradiance.service.ts — clean import, no inline type noise
+import type { IrradianceResult, NasaPowerResponse } from "./interfaces/nasa.interface.js";
+```
+
+Name interface files `<name>.interface.ts` and type alias files `<name>.types.ts` — the suffix makes the file's role immediately clear when scanning a directory.
 
 ### Create DTO
 
@@ -377,6 +411,33 @@ new ValidationPipe({
 
 `whitelist` alone strips unknown properties silently — callers sending garbage fields get no feedback. `forbidNonWhitelisted` turns that into an error. Both together enforce the contract strictly.
 
+## Utility Functions
+
+Pure functions with no NestJS dependency — math helpers, date formatters, string utilities — belong in `src/utils/`, not in `src/common/`.
+
+`src/common/` is for NestJS constructs that plug into the framework (guards, pipes, interceptors, decorators). Putting a plain function there pollutes that namespace and makes `common/` mean "everything that isn't a module."
+
+```
+src/utils/
+├── math.ts      # roundToHalf, clamp, normalize, etc.
+├── date.ts      # date formatting, range helpers
+└── string.ts    # slugify, truncate, etc.
+```
+
+```typescript
+// utils/math.ts
+export function roundToHalf(value: number): number {
+  return Math.round(value * 2) / 2;
+}
+```
+
+```typescript
+// irradiance.service.ts
+import { roundToHalf } from "../../utils/math.js";
+```
+
+If a helper is only used in one service and has no obvious reuse case, keeping it as a private method on that class is fine. Move it to `src/utils/` when it's used in more than one place or could be.
+
 ## Custom Decorators
 
 The `SetMetadata` factory pattern: a function that wraps `SetMetadata` with a fixed key, read later by a guard or interceptor via `Reflector`.
@@ -410,7 +471,10 @@ export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<string[]>("roles", [context.getHandler(), context.getClass()]);
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>("roles", [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     if (!requiredRoles?.length) return true; // no roles required — allow through
 
@@ -439,7 +503,10 @@ export class ExtendedGuard extends ThirdPartyGuard {
   }
 
   override async canActivate(context: ExecutionContext): Promise<boolean> {
-    const skip = this.reflector.getAllAndOverride<boolean>("skip-guard", [context.getHandler(), context.getClass()]);
+    const skip = this.reflector.getAllAndOverride<boolean>("skip-guard", [
+      context.getHandler(),
+      context.getClass(),
+    ]);
     if (skip) return true;
 
     return super.canActivate(context);
@@ -456,7 +523,10 @@ Pattern: extend to add skip/bypass metadata logic, delegate to `super.canActivat
 providers: [{ provide: APP_GUARD, useClass: SomeGuard }];
 
 // Correct — guard visible as a regular provider, overridable in tests
-providers: [{ provide: APP_GUARD, useExisting: SomeGuard }, SomeGuard];
+providers: [
+  { provide: APP_GUARD, useExisting: SomeGuard },
+  SomeGuard,
+];
 ```
 
 `useClass` lets Nest instantiate the guard privately — it becomes invisible to `overrideProvider` in tests, so you can never disable it in your test suite. `useExisting` references the separately-registered provider instead, keeping it visible and overridable. This difference only shows up in tests — the app behaves identically in production either way.
@@ -486,7 +556,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       const status = exception.getStatus();
       const body = exception.getResponse();
 
-      response.status(status).json(typeof body === "object" ? { statusCode: status, ...body } : { statusCode: status, message: body });
+      response.status(status).json(
+        typeof body === "object"
+          ? { statusCode: status, ...body }
+          : { statusCode: status, message: body }
+      );
       return;
     }
 
@@ -516,9 +590,13 @@ export class TransformInterceptor<T> implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const response = context.switchToHttp().getResponse<Response>();
     const statusCode = response.statusCode ?? 200;
-    const message = this.reflector.get<string>("response-message", context.getHandler()) ?? "Success";
+    const message =
+      this.reflector.get<string>("response-message", context.getHandler()) ??
+      "Success";
 
-    return next.handle().pipe(map((data) => ({ statusCode, message, data })));
+    return next.handle().pipe(
+      map((data) => ({ statusCode, message, data })),
+    );
   }
 }
 ```
@@ -538,7 +616,9 @@ async function bootstrap() {
   SwaggerModule.setup("docs", app, SwaggerModule.createDocument(app, config));
 
   // 2. Pipes — ValidationPipe has no injected deps, fine to instantiate here
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+  );
 
   // 3. Shutdown hooks — graceful termination
   app.enableShutdownHooks();
@@ -573,7 +653,7 @@ import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 export class AppModule {}
 ```
 
-**Default to the `APP_*` token approach for filters and interceptors** — even if they don't need injected deps today, they almost always will when the codebase matures (adding structured logging to a filter is the most common example). `ValidationPipe` is the exception: it rarely needs injected services and `useGlobalPipes(new ValidationPipe({...}))` in `main.ts` is idiomatic and widely used.
+**Default to the `APP_*` token approach for filters and interceptors** — even if they don't need injected deps today, they almost always will when the codebase matures. `ValidationPipe` is the exception: it rarely needs injected services and `useGlobalPipes(new ValidationPipe({...}))` in `main.ts` is idiomatic and widely used.
 
 ## Env Validation
 
@@ -595,9 +675,13 @@ Every required env var should be explicitly named in the schema. Optional vars s
 - **`new Service()` direct instantiation.** Bypasses DI, breaks injection, breaks tests. Always use constructor injection.
 - **`new Filter()` or `new Interceptor()` in `main.ts` when they have injected deps.** Places the enhancer outside the DI container. Use `APP_FILTER`/`APP_INTERCEPTOR` tokens in `AppModule` instead.
 - **Business logic in controllers.** Controllers receive requests and call services. Access checks, data transformation, and validation beyond DTO constraints belong in services.
+- **`req.user!` non-null assertions in controllers.** TypeScript and Biome reject this. Use a `@CurrentUser()` param decorator that throws `UnauthorizedException` in one place instead.
 - **`@Catch(HttpException)` as your global filter.** This silently swallows non-HTTP errors and returns a blank 500 with no logging. Use `@Catch()` — no arguments.
 - **Update DTOs recreated from scratch.** They drift from the create DTO immediately. Use `PartialType` from `@nestjs/swagger`.
 - **`useClass` for global guards registered via `APP_GUARD`.** The guard becomes invisible to `overrideProvider` — you can never bypass it in tests. Use `useExisting` + a separately-registered provider.
+- **Interfaces defined inline in service files.** They get buried and can't be cleanly imported. Put them in `interfaces/<name>.interface.ts` inside the feature folder.
+- **Pure utility functions in `src/common/`.** `common/` is for NestJS constructs. Framework-agnostic helpers go in `src/utils/`.
 - **Exporting every provider from every module by default.** Only export what other modules actually inject. Over-exporting creates invisible coupling that breaks encapsulation.
 - **Throwing raw `Error` or plain objects from services.** Throw NestJS `HttpException` subclasses. Raw errors bypass filters and produce inconsistent responses.
 - **Skipping `forbidNonWhitelisted: true` on ValidationPipe.** `whitelist: true` alone strips unknown fields silently. Callers sending invalid payloads get no feedback and no error. Use both.
+- **Dynamic routes defined before static routes.** NestJS matches top-to-bottom — `/users/:id` defined before `/users/all` will match `"all"` as an id. Static routes always go first.

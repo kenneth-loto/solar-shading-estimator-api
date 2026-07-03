@@ -8,6 +8,7 @@ import { AppCacheModule } from "./lib/cache/cache.module.js";
 import { envValidationSchema } from "./lib/config/env.validation.js";
 import { PrismaModule } from "./lib/database/prisma.module.js";
 import { IrradianceModule } from "./module/irradiance/irradiance.module.js";
+import { PvWattsModule } from "./module/pvwatts/pvwatts.module.js";
 import { SitesModule } from "./module/sites/sites.module.js";
 
 @Module({
@@ -20,6 +21,7 @@ import { SitesModule } from "./module/sites/sites.module.js";
     AppCacheModule,
     SitesModule,
     IrradianceModule,
+    PvWattsModule,
   ],
   controllers: [AppController],
   providers: [
