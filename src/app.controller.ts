@@ -11,4 +11,10 @@ export class AppController {
       docs: "Visit /docs for interactive documentation and endpoint details",
     };
   }
+
+  @Get("health")
+  @Public()
+  health() {
+    return { status: "ok" };
+  }
 }

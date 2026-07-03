@@ -12,8 +12,11 @@ import {
   ValidateNested,
 } from "class-validator";
 
-export class HorizonProfileEntry {
-  @ApiProperty({ description: "Compass direction", example: "S" })
+export class ShadingHorizonProfileEntry {
+  @ApiProperty({
+    description: "Compass direction (N, NE, E, SE, S, SW, W, NW)",
+    example: "S",
+  })
   @IsString()
   @IsNotEmpty()
   direction: string;
@@ -28,12 +31,7 @@ export class HorizonProfileEntry {
   heightAngle: number;
 }
 
-export class CreateSiteDto {
-  @ApiProperty({ example: "Makati Roof" })
-  @IsString()
-  @IsNotEmpty()
-  name: string;
-
+export class GetShadingDto {
   @ApiProperty({ description: "Latitude (-90 to 90)", example: 14.59 })
   @IsNumber()
   @Min(-90)
@@ -46,29 +44,9 @@ export class CreateSiteDto {
   @Max(180)
   longitude: number;
 
-  @ApiProperty({ description: "Panel tilt in degrees (0–90)", example: 30 })
-  @IsNumber()
-  @Min(0)
-  @Max(90)
-  panelTilt: number;
-
   @ApiProperty({
-    description: "Panel azimuth in degrees (0–360)",
-    example: 180,
-  })
-  @IsNumber()
-  @Min(0)
-  @Max(360)
-  panelAzimuth: number;
-
-  @ApiProperty({ description: "System size in kW", example: 5 })
-  @IsNumber()
-  @Min(0)
-  systemSize: number;
-
-  @ApiProperty({
-    description: "Horizon profile (4–8 entries)",
-    type: [HorizonProfileEntry],
+    description: "Horizon profile (4–8 compass direction entries)",
+    type: [ShadingHorizonProfileEntry],
     example: [
       { direction: "N", heightAngle: 15 },
       { direction: "E", heightAngle: 10 },
@@ -80,6 +58,6 @@ export class CreateSiteDto {
   @ArrayMinSize(4)
   @ArrayMaxSize(8)
   @ValidateNested({ each: true })
-  @Type(() => HorizonProfileEntry)
-  horizonProfile: HorizonProfileEntry[];
+  @Type(() => ShadingHorizonProfileEntry)
+  horizonProfile: ShadingHorizonProfileEntry[];
 }

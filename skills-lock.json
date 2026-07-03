@@ -13,6 +13,12 @@
       "skillPath": "skills/nestjs/nestjs-jest-prisma-testing/SKILL.md",
       "computedHash": "1a99a2c92ac6887ce46e17d0457dafb13b24a5df9294884ea556b916aa20f62b"
     },
+    "nestjs-jest-testing": {
+      "source": "kenneth-loto/skills",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs/nestjs-jest-testing/SKILL.md",
+      "computedHash": "9bcba2ead288fd86e7678e4ee33af13e684fad28bc0556ff3178c3202d280a38"
+    },
     "nestjs-patterns": {
       "source": "kenneth-loto/skills",
       "sourceType": "github",

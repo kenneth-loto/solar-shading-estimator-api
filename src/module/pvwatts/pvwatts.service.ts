@@ -1,5 +1,7 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import type { Cache } from "cache-manager";
 import type {
   PvWattsResponse,
   PvWattsResult,
@@ -11,7 +13,10 @@ export class PvWattsService {
   private readonly apiKey: string;
   private readonly apiUrl: string;
 
-  constructor(configService: ConfigService) {
+  constructor(
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    configService: ConfigService,
+  ) {
     this.apiKey = configService.getOrThrow("PVWATTS_API_KEY");
     this.apiUrl = configService.getOrThrow("PVWATTS_API_URL");
   }
@@ -24,11 +29,18 @@ export class PvWattsService {
     systemSize: number,
     losses = 14,
   ): Promise<PvWattsResult> {
-    const url = `${this.apiUrl}.json?api_key=${this.apiKey}&lat=${latitude}&lon=${longitude}&system_capacity=${systemSize}&module_type=0&array_type=0&tilt=${tilt}&azimuth=${azimuth}&losses=${losses}&timeframe=monthly`;
+    const cacheKey = `pvwatts:${latitude}:${longitude}:${tilt}:${azimuth}:${systemSize}:${losses}`;
 
-    this.logger.log(
-      `Fetching PVWatts estimate for lat=${latitude}, lon=${longitude}`,
-    );
+    const cached = await this.cacheManager.get<PvWattsResult>(cacheKey);
+
+    if (cached) {
+      this.logger.log(`Cache hit for ${cacheKey}`);
+      return cached;
+    }
+
+    this.logger.log(`Cache miss for ${cacheKey} — fetching from PVWatts`);
+
+    const url = `${this.apiUrl}.json?api_key=${this.apiKey}&lat=${latitude}&lon=${longitude}&system_capacity=${systemSize}&module_type=0&array_type=0&tilt=${tilt}&azimuth=${azimuth}&losses=${losses}&timeframe=monthly`;
 
     const response = await fetch(url);
 
@@ -44,12 +56,16 @@ export class PvWattsService {
       throw new Error(`PVWatts API error: ${raw.errors.join(", ")}`);
     }
 
-    return {
+    const result: PvWattsResult = {
       ac_annual: raw.outputs.ac_annual,
       ac_monthly: raw.outputs.ac_monthly,
       capacity_factor: raw.outputs.capacity_factor,
       kwh_per_kw: raw.outputs.kwh_per_kw,
       station_info: raw.station_info,
     };
+
+    await this.cacheManager.set(cacheKey, result, 86_400_000);
+
+    return result;
   }
 }
