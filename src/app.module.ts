@@ -4,8 +4,10 @@ import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import { AppController } from "./app.controller.js";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter.js";
 import { TransformInterceptor } from "./common/interceptors/transform.interceptor.js";
+import { AppCacheModule } from "./lib/cache/cache.module.js";
 import { envValidationSchema } from "./lib/config/env.validation.js";
 import { PrismaModule } from "./lib/database/prisma.module.js";
+import { IrradianceModule } from "./module/irradiance/irradiance.module.js";
 import { SitesModule } from "./module/sites/sites.module.js";
 
 @Module({
@@ -15,7 +17,9 @@ import { SitesModule } from "./module/sites/sites.module.js";
       validationSchema: envValidationSchema,
     }),
     PrismaModule,
+    AppCacheModule,
     SitesModule,
+    IrradianceModule,
   ],
   controllers: [AppController],
   providers: [
