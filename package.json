@@ -36,6 +36,7 @@
     "@nestjs/mapped-types": "^2.1.1",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.4.5",
+    "@nestjs/throttler": "^6.5.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "cache-manager": "^7.2.9",
@@ -44,7 +45,8 @@
     "joi": "^18.2.3",
     "pg": "^8.22.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "suncalc": "^2.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.2",

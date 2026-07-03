@@ -1,8 +1,10 @@
 import { Controller, Get, Query } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { ResponseMessage } from "../../common/decorators/response-message.decorator.js";
 import { GetPvWattsDto } from "./dto/get-pvwatts.dto.js";
 import { PvWattsService } from "./pvwatts.service.js";
 
+@Throttle({ default: { limit: 10 } })
 @Controller("pvwatts")
 export class PvWattsController {
   constructor(private readonly pvWattsService: PvWattsService) {}

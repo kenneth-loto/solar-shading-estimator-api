@@ -5,5 +5,6 @@ import { PvWattsService } from "./pvwatts.service.js";
 @Module({
   controllers: [PvWattsController],
   providers: [PvWattsService],
+  exports: [PvWattsService],
 })
 export class PvWattsModule {}

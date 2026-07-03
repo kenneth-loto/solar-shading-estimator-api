@@ -19,7 +19,15 @@ describe("AppController (e2e)", () => {
     return request(app.getHttpServer())
       .get("/")
       .expect(200)
-      .expect("Hello World!");
+      .expect((res) => {
+        expect(res.body).toMatchObject({
+          statusCode: 200,
+          message: "Success",
+          data: {
+            message: "Solar Shading Estimator API",
+          },
+        });
+      });
   });
 
   afterEach(async () => {

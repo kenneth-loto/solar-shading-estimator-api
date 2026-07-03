@@ -1,4 +1,5 @@
 import { jest } from "@jest/globals";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { ConfigService } from "@nestjs/config";
 import { Test, TestingModule } from "@nestjs/testing";
 import type { PvWattsResponse } from "./interfaces/pvwatts.interfaces.js";
@@ -51,6 +52,13 @@ describe("PvWattsService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PvWattsService,
+        {
+          provide: CACHE_MANAGER,
+          useValue: {
+            get: jest.fn<() => Promise<unknown>>(),
+            set: jest.fn<() => Promise<unknown>>(),
+          },
+        },
         {
           provide: ConfigService,
           useValue: {

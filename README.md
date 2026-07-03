@@ -6,19 +6,20 @@ A backend API that estimates realistic solar panel energy production for a
 given site by combining real solar/weather data with a simplified model of
 nearby shading obstructions (buildings, trees, etc).
 
-Most solar estimator tools assume a clear, unobstructed roof. This project
-asks a more useful question: **how much does shading from the surroundings
-actually cut into expected output?**
+Most solar estimator tools assume a clear, unobstructed roof. This API
+answers a more practical question: **how much does shading from the
+surroundings actually cut into expected output?** It pulls historical
+irradiance data from NASA POWER, gets a baseline production estimate from
+PVWatts, then applies a shading model based on a rough obstruction profile
+stored per site.
 
 ## Why it exists
 
-This is a portfolio/learning project built to:
-
-- Get hands-on with NestJS as a backend framework (modules, DI, external
-  API integration, caching)
-- Work with real-world scientific/public data sources instead of toy data
-- Build one genuinely original piece of logic (the shading calculation)
-  rather than just wrapping existing APIs
+Standard solar calculators (PVWatts, etc.) assume an unobstructed
+installation. Real-world rooftops have chimneys, nearby buildings, trees,
+and other obstructions that reduce actual output. This API bridges that gap
+— wrapping authoritative solar data sources under a shading model that
+produces a more realistic estimate for a given location.
 
 ## Tech stack
 
@@ -26,6 +27,9 @@ This is a portfolio/learning project built to:
 - **Database:** PostgreSQL via [Prisma](https://www.prisma.io/) ORM
 - **Caching:** Nest's `CacheModule` (in-memory store for MVP; pluggable
   to a hosted store like Upstash later without a rewrite)
+- **API docs:** Swagger/OpenAPI via `@nestjs/swagger`, served at `/docs`
+- **Rate limiting:** `@nestjs/throttler` (per-IP, stricter limits on
+  routes that call PVWatts/NASA POWER to protect external API quotas)
 - **Deployment:** [Render](https://render.com/) — web service + managed
   Postgres add-on
 - **External data sources:**
@@ -73,7 +77,10 @@ Deliberately left out for now:
   intentional simplification for MVP.
 - **Local Solar Time (LST) throughout.** Sun-position and irradiance data
   are reconciled using Local Solar Time rather than each site's civil
-  timezone, to keep the pipeline internally consistent.
+  timezone, to keep the pipeline internally consistent. Note: the LST
+  conversion used is an approximation (mean solar time based on
+  longitude) and doesn't account for the equation of time, so true solar
+  noon can drift by up to ~16 minutes depending on the date.
 - **No authentication.** Single-user/demo scope for now.
 - **No frontend (yet).** Consume the API directly or via the Swagger docs.
 
@@ -83,5 +90,9 @@ around it, not replace tools like Aurora Solar or Helioscope.
 
 ## Status
 
-Early / MVP in progress. See `PLAN.md` for the detailed feature breakdown
-and roadmap.
+All 6 MVP features complete — Site CRUD, NASA POWER irradiance fetch,
+PVWatts baseline estimate, shading calculation, combined analysis
+endpoint, and rate limiting. Pre-deploy hardening items are done (date
+validation, Swagger docs, PVWatts caching, health check, `.env.example`,
+API-key write protection on mutating routes). See `PLAN.md` for the
+full checklist.

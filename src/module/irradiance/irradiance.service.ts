@@ -1,5 +1,10 @@
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Cache } from "cache-manager";
 import { roundToHalf } from "../../utils/math.js";
@@ -26,6 +31,10 @@ export class IrradianceService {
     startDate: string,
     endDate: string,
   ): Promise<IrradianceResult> {
+    if (startDate > endDate) {
+      throw new BadRequestException("startDate must not be after endDate");
+    }
+
     const roundedLat = roundToHalf(latitude);
     const roundedLon = roundToHalf(longitude);
 
