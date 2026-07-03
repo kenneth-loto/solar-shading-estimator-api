@@ -9,7 +9,7 @@ Run it at the end of a session to save. Run it at the start of a new session to 
 
 ## Security Boundary
 
-This skill must never persist secrets. If any sensitive value appears in the conversation or context, do not copy it to `memory.md`.
+This skill must never persist secrets. If any sensitive value appears in the conversation or context, do not copy it to `MEMORY.md`.
 
 Sensitive data includes (non-exhaustive):
 

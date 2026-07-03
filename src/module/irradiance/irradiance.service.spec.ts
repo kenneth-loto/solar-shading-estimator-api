@@ -1,5 +1,6 @@
 import { jest } from "@jest/globals";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { BadRequestException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Test, TestingModule } from "@nestjs/testing";
 import type { NasaPowerResponse } from "./interfaces/irradiance.interfaces.js";
@@ -141,6 +142,16 @@ describe("IrradianceService", () => {
       expect(callUrl).toContain("longitude=-105.5");
 
       mockFetch.mockRestore();
+    });
+
+    it("throws BadRequestException when startDate is after endDate", async () => {
+      await expect(
+        service.getIrradiance(40, -105, "20230103", "20230101"),
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        service.getIrradiance(40, -105, "20230103", "20230101"),
+      ).rejects.toThrow("startDate must not be after endDate");
     });
 
     it("throws when NASA POWER returns an error", async () => {

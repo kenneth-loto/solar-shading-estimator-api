@@ -1,4 +1,5 @@
 import { jest } from "@jest/globals";
+import { ConfigService } from "@nestjs/config";
 import { Test, TestingModule } from "@nestjs/testing";
 import type { Prisma, Site } from "../../generated/prisma/client.js";
 import { SitesController } from "./sites.controller.js";
@@ -36,6 +37,10 @@ describe("SitesController", () => {
             update: jest.fn(),
             delete: jest.fn(),
           },
+        },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn(() => undefined) },
         },
       ],
     }).compile();
