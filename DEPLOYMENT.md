@@ -12,10 +12,9 @@ The runner stage in the Dockerfile has **no secrets baked in** — secrets are m
 
 Set these in **GitHub → Settings → Secrets and variables → Actions**:
 
-| Secret               | Required | Notes                                        |
-| -------------------- | -------- | -------------------------------------------- |
-| `DATABASE_URL`       | ✅       | PostgreSQL connection string                 |
-| `PVWATTS_API_KEY`    | ✅       | NREL PVWatts API key                         |
+| Secret               | Required | Notes                                          |
+| -------------------- | -------- | ---------------------------------------------- |
+| `DATABASE_URL`       | ✅       | PostgreSQL connection string                   |
 | `RENDER_DEPLOY_HOOK` | ✅       | From Render dashboard → Settings → Deploy Hook |
 
 ## Render Setup
@@ -47,13 +46,13 @@ Render needs a token to pull a private GHCR image:
 
 Render Dashboard → **Your Service → Environment**:
 
-| Variable             | Masked |
-| -------------------- | ------ |
-| `DATABASE_URL`       | ✅     |
-| `PVWATTS_API_KEY`    | ✅     |
-| `API_KEY`            | ✅     |
-| `NODE_ENV`           | No     |
-| `ALLOWED_ORIGINS`    | No     |
+| Variable          | Masked |
+| ----------------- | ------ |
+| `DATABASE_URL`    | ✅     |
+| `PVWATTS_API_KEY` | ✅     |
+| `API_KEY`         | ✅     |
+| `NODE_ENV`        | ✅     |
+| `ALLOWED_ORIGINS` | ✅     |
 
 Set `NODE_ENV` to `production`. `ALLOWED_ORIGINS` defaults to `*`.
 
@@ -74,11 +73,11 @@ Or trigger manually from **GitHub → Actions → CI → Run workflow** (select 
 
 ## Health check
 
-Once deployed, hit the root endpoint:
+Once deployed, hit the health endpoint:
 
 ```bash
-curl https://solar-shading-estimator-api.onrender.com/
-# {"message":"Solar Shading Estimator API","docs":"Visit /docs for interactive documentation and endpoint details"}
+curl https://solar-shading-estimator-api.onrender.com/health
+# {"status":"ok"}
 ```
 
 ## Local build (same image)
