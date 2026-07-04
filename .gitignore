@@ -14,14 +14,18 @@ yarn-error.log*
 /coverage
 /.nyc_output
 
-# env
-.env
-.env.local
+# env files
+.env*
+!.env.example
 
-/src/generated/prisma
+# secrets (local Docker dev)
+/secrets
+
+# Prisma generated files
+/src/generated
 
 # session memory
 MEMORY.md
 
 # ad-hoc test scripts
-test-throttle.sh
+/scripts/test-throttle.sh

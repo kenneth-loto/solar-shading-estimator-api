@@ -1,5 +1,10 @@
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import {
+  BadGatewayException,
+  Inject,
+  Injectable,
+  Logger,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Cache } from "cache-manager";
 import type {
@@ -42,18 +47,26 @@ export class PvWattsService {
 
     const url = `${this.apiUrl}.json?api_key=${this.apiKey}&lat=${latitude}&lon=${longitude}&system_capacity=${systemSize}&module_type=0&array_type=0&tilt=${tilt}&azimuth=${azimuth}&losses=${losses}&timeframe=monthly`;
 
+    const redactedUrl = url.replace(this.apiKey, "[REDACTED]");
+
+    this.logger.log(`Fetching ${redactedUrl}`);
+
     const response = await fetch(url);
 
     if (!response.ok) {
       const body = await response.text();
 
-      throw new Error(`PVWatts API returned ${response.status}: ${body}`);
+      throw new BadGatewayException(
+        `PVWatts API returned ${response.status}: ${body}`,
+      );
     }
 
     const raw = (await response.json()) as PvWattsResponse;
 
     if (raw.errors.length > 0) {
-      throw new Error(`PVWatts API error: ${raw.errors.join(", ")}`);
+      throw new BadGatewayException(
+        `PVWatts API error: ${raw.errors.join(", ")}`,
+      );
     }
 
     const result: PvWattsResult = {

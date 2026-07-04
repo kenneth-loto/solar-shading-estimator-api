@@ -18,8 +18,10 @@
         "cache-manager": "^7.2.9",
         "class-transformer": "^0.5.1",
         "class-validator": "^0.15.1",
+        "helmet": "^8.2.0",
         "joi": "^18.2.3",
         "pg": "^8.22.0",
+        "prisma": "^7.8.0",
         "reflect-metadata": "^0.2.2",
         "rxjs": "^7.8.1",
         "suncalc": "^2.0.0",
@@ -38,7 +40,6 @@
         "husky": "^9.1.7",
         "jest": "^30.0.0",
         "lint-staged": "^17.0.8",
-        "prisma": "^7.8.0",
         "source-map-support": "^0.5.21",
         "supertest": "^7.0.0",
         "ts-jest": "^29.2.5",
@@ -921,6 +922,8 @@
     "hashery": ["hashery@1.5.1", "", { "dependencies": { "hookified": "^1.15.0" } }, "sha512-iZyKG96/JwPz1N55vj2Ie2vXbhu440zfUfJvSwEqEbeLluk7NnapfGqa7LH0mOsnDxTF85Mx8/dyR6HfqcbmbQ=="],
 
     "hasown": ["hasown@2.0.4", "", { "dependencies": { "function-bind": "^1.1.2" } }, "sha512-T2UbfbBEF32wiepXIsMlTW9+dDYC6wMh/t/vYA4tuOMKqWz/n3vr1NFSxQiyP+zk2mXsoMA/i/7qV6LKut1t1A=="],
+
+    "helmet": ["helmet@8.2.0", "", {}, "sha512-DRgTIUgnWcJ62KyarxxziuqYxKGnR6Rgg19BlbucN/dpmJbl1XOit6qvoOX0ZT+HhWe5OUVhU/a1zpGyc1xA0Q=="],
 
     "hono": ["hono@4.12.27", "", {}, "sha512-1yrb/+w6HWQJrUCLkJ2IF5jNIPvvFkblV5RNOYl6bV+OA6p9GLcMpHFFGTosSvHvcAUibuUukRqhlYI4z32C7Q=="],
 
