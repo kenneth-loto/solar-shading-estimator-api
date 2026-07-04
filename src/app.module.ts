@@ -40,9 +40,12 @@ import { SitesModule } from "./module/sites/sites.module.js";
   ],
   controllers: [AppController],
   providers: [
-    { provide: APP_FILTER, useClass: AllExceptionsFilter },
-    { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_FILTER, useExisting: AllExceptionsFilter },
+    AllExceptionsFilter,
+    { provide: APP_INTERCEPTOR, useExisting: TransformInterceptor },
+    TransformInterceptor,
+    { provide: APP_GUARD, useExisting: ThrottlerGuard },
+    ThrottlerGuard,
   ],
 })
 export class AppModule {}

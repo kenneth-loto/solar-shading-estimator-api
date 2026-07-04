@@ -11,4 +11,5 @@ export const envValidationSchema = Joi.object({
     .uri()
     .default("https://developer.nlr.gov/api/pvwatts/v8"),
   API_KEY: Joi.string().optional(),
+  ALLOWED_ORIGINS: Joi.string().default("*"),
 });

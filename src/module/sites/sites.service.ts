@@ -37,9 +37,23 @@ export class SitesService {
   async update(id: string, dto: UpdateSiteDto): Promise<Site> {
     await this.findById(id);
 
+    const data: Prisma.SiteUpdateInput = {
+      ...(dto.name !== undefined && { name: dto.name }),
+      ...(dto.latitude !== undefined && { latitude: dto.latitude }),
+      ...(dto.longitude !== undefined && { longitude: dto.longitude }),
+      ...(dto.panelTilt !== undefined && { panelTilt: dto.panelTilt }),
+      ...(dto.panelAzimuth !== undefined && {
+        panelAzimuth: dto.panelAzimuth,
+      }),
+      ...(dto.systemSize !== undefined && { systemSize: dto.systemSize }),
+      ...(dto.horizonProfile !== undefined && {
+        horizonProfile: dto.horizonProfile as unknown as Prisma.InputJsonValue,
+      }),
+    };
+
     return this.prisma.site.update({
       where: { id },
-      data: dto as Prisma.SiteUpdateInput,
+      data,
     });
   }
 
