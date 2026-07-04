@@ -27,7 +27,7 @@ produces a more realistic estimate for a given location.
 - **Database:** PostgreSQL via [Prisma](https://www.prisma.io/) ORM
 - **Caching:** Nest's `CacheModule` (in-memory store for MVP; pluggable
   to a hosted store like Upstash later without a rewrite)
-- **API docs:** Swagger/OpenAPI via `@nestjs/swagger`, served at `/docs`
+- **API docs:** Swagger/OpenAPI via `@nestjs/swagger` (disabled in production)
 - **Rate limiting:** `@nestjs/throttler` (per-IP, stricter limits on
   routes that call PVWatts/NASA POWER to protect external API quotas)
 - **Deployment:** [Render](https://render.com/) — web service + managed
@@ -82,17 +82,18 @@ Deliberately left out for now:
   longitude) and doesn't account for the equation of time, so true solar
   noon can drift by up to ~16 minutes depending on the date.
 - **No authentication.** Single-user/demo scope for now.
-- **No frontend (yet).** Consume the API directly or via the Swagger docs.
+- **No frontend (yet).** Consume the API directly.
 
 If you're looking for a production-grade solar design tool, this isn't
 that — it's meant to demonstrate the concept and the backend engineering
 around it, not replace tools like Aurora Solar or Helioscope.
 
-## Status
+### Live Demo
 
-All 6 MVP features complete — Site CRUD, NASA POWER irradiance fetch,
-PVWatts baseline estimate, shading calculation, combined analysis
-endpoint, and rate limiting. Pre-deploy hardening items are done (date
-validation, Swagger docs, PVWatts caching, health check, `.env.example`,
-API-key write protection on mutating routes). See `PLAN.md` for the
-full checklist.
+- **API**: [solar-shading-estimator-api.onrender.com](https://solar-shading-estimator-api.onrender.com)
+
+> **Note:** Hosted on Render's free tier — the service sleeps after 15 minutes of inactivity. If the first request hangs, it's waking up (~30 seconds). Just wait and retry.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
