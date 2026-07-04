@@ -1,5 +1,6 @@
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import {
+  BadGatewayException,
   BadRequestException,
   Inject,
   Injectable,
@@ -83,7 +84,9 @@ export class IrradianceService {
     if (!response.ok) {
       const body = await response.text();
 
-      throw new Error(`NASA POWER API returned ${response.status}: ${body}`);
+      throw new BadGatewayException(
+        `NASA POWER API returned ${response.status}: ${body}`,
+      );
     }
 
     return response.json() as Promise<NasaPowerResponse>;

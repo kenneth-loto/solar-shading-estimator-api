@@ -1,0 +1,45 @@
+# dependencies (installed during Docker build)
+node_modules
+
+# compiled output (generated during Docker build)
+dist
+src/generated
+
+# git
+.git
+.gitattributes
+.gitignore
+
+# CI/CD
+.github
+
+# test files (not needed for production build)
+test
+coverage
+
+# env files (do not bake secrets into the image!)
+.env*
+secrets/
+
+# docs and config
+*.md
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# git hooks and editor
+.husky
+.zed
+.vscode
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# logs
+logs
+*.log
+
+# temp
+.tmp
+.temp

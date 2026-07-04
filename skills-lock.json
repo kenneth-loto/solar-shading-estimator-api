@@ -25,6 +25,12 @@
       "skillPath": "skills/nestjs/nestjs-patterns/SKILL.md",
       "computedHash": "f200a03e2c01efb39d6f99d1700e80e1f227a18f35428173570e53a894de7cba"
     },
+    "nestjs-security": {
+      "source": "kenneth-loto/skills",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs/nestjs-security/SKILL.md",
+      "computedHash": "789b75817dcbf78d35c5d3b0606bdebdd1af007e2cb4ab77d1c8a928aa4b1e48"
+    },
     "recover": {
       "source": "JavaScript-Mastery-Pro/skills",
       "sourceType": "github",

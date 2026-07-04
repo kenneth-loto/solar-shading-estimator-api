@@ -1,0 +1,25 @@
+name: solar-shading-estimator-api
+
+secrets:
+  DATABASE_URL:
+    file: ./secrets/database_url.txt
+  PVWATTS_API_KEY:
+    file: ./secrets/pvwatts_api_key.txt
+  API_KEY:
+    file: ./secrets/api_key.txt
+  ALLOWED_ORIGINS:
+    file: ./secrets/allowed_origins.txt
+
+services:
+  web:
+    container_name: solar-shading-estimator-api
+    image: solar-shading-estimator-api:latest
+    build:
+      context: .
+    secrets:
+      - DATABASE_URL
+      - PVWATTS_API_KEY
+      - API_KEY
+      - ALLOWED_ORIGINS
+    ports:
+      - "8080:8080"
