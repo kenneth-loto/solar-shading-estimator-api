@@ -611,9 +611,15 @@ Order matters. Each global enhancement applies to everything registered after it
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // 1. Swagger (optional — before globals so it can inspect the full app)
+  // 1. API docs (optional — before globals so it can inspect the full app)
+  // SwaggerModule.setup() works out of the box.
+  // Consider @scalar/nestjs-api-reference for a significantly better UI —
+  // same OpenAPI spec generation (@nestjs/swagger decorators unchanged), just a different renderer.
+  // See nestjs-security skill for the CSP config Scalar requires.
   const config = new DocumentBuilder().setTitle("API").setVersion("1.0").build();
-  SwaggerModule.setup("docs", app, SwaggerModule.createDocument(app, config));
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup("docs", app, document);
+  // or with Scalar: app.use("/docs", apiReference({ content: document }));
 
   // 2. Pipes — ValidationPipe has no injected deps, fine to instantiate here
   app.useGlobalPipes(

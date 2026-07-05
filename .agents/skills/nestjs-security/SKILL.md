@@ -55,14 +55,14 @@ Install: `bun add helmet` (or `npm install helmet`).
 
 What `helmet()` with defaults sets — and what each header actually prevents:
 
-| Header                            | What it prevents                                                                  |
-| --------------------------------- | --------------------------------------------------------------------------------- |
-| `Strict-Transport-Security`       | HTTPS downgrade attacks — forces browsers to use HTTPS for `max-age` seconds      |
-| `X-Frame-Options: SAMEORIGIN`     | Clickjacking — prevents your app being embedded in an iframe on another domain    |
+| Header | What it prevents |
+|---|---|
+| `Strict-Transport-Security` | HTTPS downgrade attacks — forces browsers to use HTTPS for `max-age` seconds |
+| `X-Frame-Options: SAMEORIGIN` | Clickjacking — prevents your app being embedded in an iframe on another domain |
 | `X-Content-Type-Options: nosniff` | MIME sniffing — stops browsers guessing content type and executing a `.txt` as JS |
-| `Referrer-Policy`                 | Leaking your URL path/query in the `Referer` header to third parties              |
-| `X-DNS-Prefetch-Control`          | Some timing side-channel attacks via DNS prefetching                              |
-| `X-Powered-By` removal            | Removes `X-Powered-By: Express` — stops advertising your stack to scanners        |
+| `Referrer-Policy` | Leaking your URL path/query in the `Referer` header to third parties |
+| `X-DNS-Prefetch-Control` | Some timing side-channel attacks via DNS prefetching |
+| `X-Powered-By` removal | Removes `X-Powered-By: Express` — stops advertising your stack to scanners |
 
 ### Content Security Policy (CSP)
 
@@ -78,7 +78,7 @@ app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
-        defaultSrc: ["'none'"], // block everything by default
+        defaultSrc: ["'none'"],     // block everything by default
         frameAncestors: ["'none'"], // equivalent to X-Frame-Options: DENY
       },
     },
@@ -105,6 +105,34 @@ app.use(
   }),
 );
 ```
+
+**If using Scalar instead of Swagger UI**, the same CSP conflict applies — but Scalar also loads assets from `cdn.jsdelivr.net` by default, so you need to add it explicitly or the UI silently fails to load:
+
+```typescript
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net"],
+        styleSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net"],
+        imgSrc: ["'self'", "data:"],
+      },
+    },
+  }),
+);
+```
+
+To remove the external CDN dependency entirely, pin Scalar to a self-hosted or specific version URL via the `apiReference` config:
+
+```typescript
+apiReference({
+  cdn: "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.25.28", // pinned version
+  content: document,
+});
+```
+
+Pinning the version also prevents unexpected UI changes when Scalar ships updates.
 
 **Case 3 — Full frontend app (NestJS serving HTML pages).**
 Use nonces instead of `'unsafe-inline'` — nonces generate a per-request random token that only your server-generated HTML knows about:
@@ -209,9 +237,9 @@ A public API that intentionally serves any client (e.g., a public data endpoint,
 ```typescript
 app.enableCors({
   origin: "*",
-  methods: ["GET"], // public reads only
+  methods: ["GET"],             // public reads only
   allowedHeaders: ["Content-Type"],
-  credentials: false, // credentials + wildcard is invalid anyway
+  credentials: false,           // credentials + wildcard is invalid anyway
 });
 ```
 
@@ -235,13 +263,13 @@ import { APP_GUARD } from "@nestjs/core";
     ThrottlerModule.forRoot([
       {
         name: "short",
-        ttl: 1000, // 1 second
-        limit: 10, // max 10 requests per second
+        ttl: 1000,    // 1 second
+        limit: 10,    // max 10 requests per second
       },
       {
         name: "medium",
-        ttl: 60_000, // 1 minute
-        limit: 100, // max 100 requests per minute
+        ttl: 60_000,  // 1 minute
+        limit: 100,   // max 100 requests per minute
       },
     ]),
   ],
@@ -298,7 +326,7 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
     const forwarded = req.headers?.["x-forwarded-for"];
     const ip = Array.isArray(forwarded)
       ? forwarded[0]
-      : ((forwarded as string)?.split(",")[0]?.trim() ?? req.ip);
+      : (forwarded as string)?.split(",")[0]?.trim() ?? req.ip;
     return ip as string;
   }
 }
@@ -319,7 +347,6 @@ CSRF is not needed. Browsers don't automatically attach `Authorization` headers 
 
 **Using cookies for session state?**
 CSRF protection is mandatory. The browser automatically sends cookies with every request to your domain, including forged ones. You need either:
-
 - SameSite cookie flags (preferred, simpler)
 - Double-submit CSRF token (traditional, more compatible)
 
@@ -330,8 +357,8 @@ Setting `SameSite=Strict` or `SameSite=Lax` on session cookies prevents the brow
 ```typescript
 // When setting session/auth cookies
 res.cookie("session", token, {
-  httpOnly: true, // JS can't access the cookie
-  secure: true, // HTTPS only
+  httpOnly: true,     // JS can't access the cookie
+  secure: true,       // HTTPS only
   sameSite: "strict", // never sent on cross-origin requests
 });
 ```
@@ -382,9 +409,9 @@ Note: `httpOnly` on a CSRF token cookie is counterproductive — JS must be able
 ```typescript
 app.useGlobalPipes(
   new ValidationPipe({
-    whitelist: true, // strip unknown properties
-    forbidNonWhitelisted: true, // throw 400 on unknown properties
-    transform: true, // coerce types to DTO class instances
+    whitelist: true,              // strip unknown properties
+    forbidNonWhitelisted: true,   // throw 400 on unknown properties
+    transform: true,              // coerce types to DTO class instances
   }),
 );
 ```
@@ -446,10 +473,7 @@ Swagger's UI exposes your entire API surface, all endpoints, all parameter names
 ```typescript
 // main.ts
 if (process.env.NODE_ENV !== "production") {
-  const config = new DocumentBuilder()
-    .setTitle("API")
-    .setVersion("1.0")
-    .build();
+  const config = new DocumentBuilder().setTitle("API").setVersion("1.0").build();
   SwaggerModule.setup("docs", app, SwaggerModule.createDocument(app, config));
 }
 ```
@@ -469,22 +493,22 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
 
 Not every measure applies to every app. Use this to decide what to enable:
 
-| Measure                      | Public API                   | Authenticated API       |
-| ---------------------------- | ---------------------------- | ----------------------- |
-| Helmet (base)                | ✅ Always                    | ✅ Always               |
-| Permissions-Policy           | ✅ Always                    | ✅ Always               |
-| CSP `'none'` fallback        | ✅ JSON-only                 | ✅ JSON-only            |
-| CSP explicit policy          | If serving HTML              | If serving HTML/Swagger |
-| CORS allowlist               | Depends on intent            | ✅ Always               |
-| CORS wildcard                | Only if intentionally public | ❌ Never                |
-| Rate limiting                | ✅ Always (abuse prevention) | ✅ Always (brute force) |
-| CSRF protection              | Not needed (no cookies)      | Only if using cookies   |
-| `SameSite` cookies           | N/A                          | ✅ Always               |
-| ValidationPipe               | ✅ Always                    | ✅ Always               |
-| Payload size limits          | ✅ Always                    | ✅ Always               |
-| No stack traces in prod      | ✅ Always                    | ✅ Always               |
-| No Swagger in prod           | ✅ Always                    | ✅ Always               |
-| Error enumeration protection | N/A                          | ✅ Auth endpoints       |
+| Measure | Public API | Authenticated API |
+|---|---|---|
+| Helmet (base) | ✅ Always | ✅ Always |
+| Permissions-Policy | ✅ Always | ✅ Always |
+| CSP `'none'` fallback | ✅ JSON-only | ✅ JSON-only |
+| CSP explicit policy | If serving HTML | If serving HTML/Swagger |
+| CORS allowlist | Depends on intent | ✅ Always |
+| CORS wildcard | Only if intentionally public | ❌ Never |
+| Rate limiting | ✅ Always (abuse prevention) | ✅ Always (brute force) |
+| CSRF protection | Not needed (no cookies) | Only if using cookies |
+| `SameSite` cookies | N/A | ✅ Always |
+| ValidationPipe | ✅ Always | ✅ Always |
+| Payload size limits | ✅ Always | ✅ Always |
+| No stack traces in prod | ✅ Always | ✅ Always |
+| No Swagger in prod | ✅ Always | ✅ Always |
+| Error enumeration protection | N/A | ✅ Auth endpoints |
 
 ## Pre-deploy security checklist
 
