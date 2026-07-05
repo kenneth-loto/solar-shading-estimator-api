@@ -162,4 +162,22 @@ jobs:
     if: github.ref_name == 'main' && github.event_name == 'push' && needs.changes.outputs.code == 'true'
     steps:
       - name: Trigger Render deploy
-        run: curl "${{ secrets.RENDER_DEPLOY_HOOK }}"
+        run: curl -f "${{ secrets.RENDER_DEPLOY_HOOK }}"
+
+      - name: Wait for API to be ready
+        run: |
+          curl -sf \
+            --retry 30 \
+            --retry-delay 10 \
+            --retry-all-errors \
+            "${{ secrets.API_URL }}/openapi.json" > /dev/null
+
+  trigger-docs:
+    name: Trigger Docs Rebuild
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    needs: deploy
+    if: needs.deploy.result == 'success'
+    steps:
+      - name: Trigger Fumadocs rebuild
+        run: curl -f -X POST "${{ secrets.VERCEL_DEPLOY_HOOK }}"

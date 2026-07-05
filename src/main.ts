@@ -2,10 +2,12 @@ import { BadRequestException, ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { SwaggerModule } from "@nestjs/swagger";
+import { apiReference } from "@scalar/nestjs-api-reference";
 import type { NextFunction, Request, Response } from "express";
 import helmet from "helmet";
 import { AppModule } from "./app.module.js";
+import { buildSwaggerConfig } from "./swagger.config.js";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -14,16 +16,33 @@ async function bootstrap() {
 
   app.set("trust proxy", true);
 
-  app.use(
-    helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'none'"],
-          frameAncestors: ["'none'"],
+  if (process.env.NODE_ENV === "production") {
+    app.use(
+      helmet({
+        contentSecurityPolicy: {
+          directives: {
+            defaultSrc: ["'none'"],
+            frameAncestors: ["'none'"],
+          },
         },
-      },
-    }),
-  );
+      }),
+    );
+  } else {
+    app.use(
+      helmet({
+        contentSecurityPolicy: {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net"],
+            styleSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net"],
+            imgSrc: ["'self'", "data:", "cdn.jsdelivr.net"],
+            frameAncestors: ["'none'"],
+            connectSrc: ["'self'"],
+          },
+        },
+      }),
+    );
+  }
 
   app.use((_req: Request, res: Response, next: NextFunction) => {
     res.setHeader(
@@ -76,25 +95,15 @@ async function bootstrap() {
 
   app.enableShutdownHooks();
 
+  const swaggerConfig = buildSwaggerConfig();
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+
+  app.use("/openapi.json", (_req: Request, res: Response) => {
+    res.json(document);
+  });
+
   if (process.env.NODE_ENV !== "production") {
-    const swaggerConfig = new DocumentBuilder()
-      .setTitle("Solar Shading Estimator API")
-      .setDescription(
-        "Estimate realistic solar energy production by combining NASA POWER irradiance data, PVWatts baseline estimates, and a simplified sun-position vs. obstruction shading model.\n\nWrite endpoints (`POST`, `PATCH`, `DELETE`) require an API key. Request one from the API administrator, then click the **Authorize** button below to set it.",
-      )
-      .setVersion("1.0")
-      .addSecurity("api-key", {
-        type: "apiKey",
-        in: "header",
-        name: "x-api-key",
-        description:
-          "API key for write access. Request one from the API administrator.",
-      })
-      .build();
-
-    const document = SwaggerModule.createDocument(app, swaggerConfig);
-
-    SwaggerModule.setup("docs", app, document);
+    app.use("/docs", apiReference({ content: document }));
   }
 
   await app.listen(configService.getOrThrow("PORT"));
