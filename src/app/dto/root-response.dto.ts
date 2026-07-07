@@ -4,7 +4,9 @@ export class RootDataDto {
   @ApiProperty({ example: "Solar Shading Estimator API" })
   message: string;
 
-  @ApiProperty({ example: "https://your-docs-site.com" })
+  @ApiProperty({
+    example: "https://solar-shading-estimator-api-docs.vercel.app",
+  })
   docs: string;
 }
 
