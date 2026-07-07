@@ -91,7 +91,7 @@ around it, not replace tools like Aurora Solar or Helioscope.
 ### Live Demo
 
 - **API**: [solar-shading-estimator-api.onrender.com](https://solar-shading-estimator-api.onrender.com)
-- **Docs**: [your-docs-site.com](https://your-docs-site.com)
+- **Docs**: [solar-shading-estimator-api-docs.vercel.app](https://solar-shading-estimator-api-docs.vercel.app)
 
 > **Note:** Hosted on Render's free tier — the service sleeps after 15 minutes of inactivity. If the first request hangs, it's waking up (~30 seconds). Just wait and retry.
 
