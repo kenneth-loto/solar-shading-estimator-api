@@ -55,6 +55,8 @@ produces a more realistic estimate for a given location.
    stored on the site (e.g., "there's something 20° tall to the east").
 5. Return a combined report: baseline output, estimated shading loss %,
    and an adjusted, more realistic production estimate.
+6. Persist every analysis result — review past reports via
+   `GET /sites/:id/analyses` (list) and `GET /analyses/:id` (single).
 
 ## What it does NOT do (limitations / out of scope)
 

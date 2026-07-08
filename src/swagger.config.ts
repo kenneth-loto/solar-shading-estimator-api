@@ -1,6 +1,6 @@
 import { DocumentBuilder } from "@nestjs/swagger";
 
-export function buildSwaggerConfig() {
+export function buildSwaggerConfig(port: number) {
   return new DocumentBuilder()
     .setTitle("Solar Shading Estimator API")
     .setDescription(
@@ -13,7 +13,7 @@ export function buildSwaggerConfig() {
     .addTag("PvWatts")
     .addTag("Shading")
     .addTag("Analysis")
-    .addServer("http://localhost:3000", "Local development")
+    .addServer(`http://localhost:${port}`, "Local development")
     .addServer("https://solar-shading-estimator-api.onrender.com", "Production")
     .addSecurity("api-key", {
       type: "apiKey",

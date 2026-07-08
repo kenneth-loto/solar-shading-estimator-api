@@ -15,8 +15,10 @@ Group by feature, not by technical layer. A folder called `controllers/` that ho
 src/
 ├── app.module.ts
 ├── main.ts
+├── swagger.config.ts      # OpenAPI document builder — single source of truth
 ├── common/                # Cross-cutting concerns shared across features
 │   ├── decorators/        # @SetMetadata-based custom decorators
+│   ├── dto/               # Shared response/error DTOs used across features
 │   ├── filters/           # Exception filters
 │   ├── guards/            # Auth, roles, rate-limit guards
 │   ├── interceptors/      # Response transformation, logging
@@ -38,7 +40,7 @@ src/
     └── posts/
 ```
 
-**Rule:** Feature modules go in `src/module/<name>/`. Infrastructure (database, mail, cache) goes in `src/lib/<name>/`. Shared guards, interceptors, decorators, and filters go in `src/common/<category>/`. Pure utility functions with no NestJS dependency go in `src/utils/`.
+**Rule:** Feature modules go in `src/module/<name>/`. Infrastructure (database, mail, cache) goes in `src/lib/<name>/`. Shared guards, interceptors, decorators, filters, and response/error DTOs go in `src/common/<category>/`. Pure utility functions with no NestJS dependency go in `src/utils/`. The OpenAPI document builder lives in `src/swagger.config.ts`.
 
 ## Module Patterns
 
@@ -350,6 +352,114 @@ import type { IrradianceResult, NasaPowerResponse } from "./interfaces/nasa.inte
 
 Name interface files `<name>.interface.ts` and type alias files `<name>.types.ts` — the suffix makes the file's role immediately clear when scanning a directory.
 
+### Shared response DTOs — `src/common/dto/`
+
+Your global response interceptor wraps every response in a `{ statusCode, message, data }`
+envelope. Without typed DTOs that reflect this shape, Scalar and Swagger UI show
+the raw entity type instead of the actual response — misleading for consumers.
+
+Shared error and structural response DTOs live in `src/common/dto/` since every
+controller uses them:
+
+```typescript
+// src/common/dto/error-response.dto.ts
+import { ApiProperty } from "@nestjs/swagger";
+
+export class ErrorResponseDto {
+  @ApiProperty({ example: 404 })
+  statusCode: number;
+
+  @ApiProperty({ example: "Resource not found" })
+  message: string;
+
+  @ApiProperty({ nullable: true, example: null })
+  data: null;
+}
+
+export class ValidationErrorItemDto {
+  @ApiProperty({ example: "latitude" })
+  field: string;
+
+  @ApiProperty({ example: "latitude must be between -90 and 90" })
+  message: string;
+}
+
+export class ValidationErrorResponseDto {
+  @ApiProperty({ example: 400 })
+  statusCode: number;
+
+  @ApiProperty({ example: "Validation failed" })
+  message: string;
+
+  @ApiProperty({ type: [ValidationErrorItemDto] })
+  errors: ValidationErrorItemDto[];
+}
+
+export class EmptyResponseDto {
+  @ApiProperty({ example: 200 })
+  statusCode: number;
+
+  @ApiProperty({ example: "Deleted successfully" })
+  message: string;
+
+  @ApiProperty({ nullable: true, example: null })
+  data: null;
+}
+```
+
+Used in every controller via `@ApiResponse({ type: ErrorResponseDto })` — one
+definition, consistent documentation everywhere. No per-controller duplication.
+
+### Feature response DTOs — `module/<name>/dto/`
+
+Feature-specific response DTOs wrap the actual entity in the same envelope shape,
+so Scalar shows the real response structure including `statusCode`, `message`, and
+the nested data type:
+
+```typescript
+// module/sites/dto/site-response.dto.ts
+import { ApiProperty } from "@nestjs/swagger";
+
+export class SiteDataDto {
+  @ApiProperty({ example: "clx..." })
+  id: string;
+
+  @ApiProperty({ example: "Rooftop Array A" })
+  name: string;
+
+  @ApiProperty({ example: 14.59 })
+  latitude: number;
+
+  // ... other fields
+}
+
+export class SiteResponseDto {
+  @ApiProperty({ example: 200 })
+  statusCode: number;
+
+  @ApiProperty({ example: "Site retrieved successfully" })
+  message: string;
+
+  @ApiProperty({ type: SiteDataDto, nullable: true })
+  data: SiteDataDto | null;
+}
+
+export class SiteListResponseDto {
+  @ApiProperty({ example: 200 })
+  statusCode: number;
+
+  @ApiProperty({ example: "Sites retrieved successfully" })
+  message: string;
+
+  @ApiProperty({ type: [SiteDataDto] })
+  data: SiteDataDto[];
+}
+```
+
+The controller stays clean — it imports these DTOs and uses them with
+`@ApiOkResponse({ type: SiteResponseDto })`. No inline response shape
+descriptions, no string literals for status codes scattered across handlers.
+
 ### Create DTO
 
 ```typescript
@@ -520,7 +630,7 @@ Pattern: extend to add skip/bypass metadata logic, delegate to `super.canActivat
 
 ```typescript
 // Wrong — guard instantiated privately, cannot be overridden in tests
-providers: [{ provide: APP_GUARD, useClass: SomeGuard }];
+providers: [{ provide: APP_GUARD, useClass: SomeGuard }]
 
 // Correct — guard visible as a regular provider, overridable in tests
 providers: [
@@ -612,14 +722,19 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // 1. API docs (optional — before globals so it can inspect the full app)
-  // SwaggerModule.setup() works out of the box.
-  // Consider @scalar/nestjs-api-reference for a significantly better UI —
-  // same OpenAPI spec generation (@nestjs/swagger decorators unchanged), just a different renderer.
-  // See nestjs-security skill for the CSP config Scalar requires.
-  const config = new DocumentBuilder().setTitle("API").setVersion("1.0").build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup("docs", app, document);
-  // or with Scalar: app.use("/docs", apiReference({ content: document }));
+  // Extract the DocumentBuilder config into src/swagger.config.ts for a single
+  // source of truth — reusable if you later serve /openapi.json for SDK generation,
+  // MCP tooling, or external consumers without repeating the builder chain.
+  const swaggerConfig = buildSwaggerConfig(); // import from ./swagger.config.js
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+
+  // Serve the raw OpenAPI spec — useful for external tooling, SDK generators, MCP
+  app.use("/openapi.json", (_req: Request, res: Response) => res.json(document));
+
+  // Scalar in dev, nothing in prod (see nestjs-security for env-aware CSP config)
+  if (process.env.NODE_ENV !== "production") {
+    app.use("/docs", apiReference({ content: document }));
+  }
 
   // 2. Pipes — ValidationPipe has no injected deps, fine to instantiate here
   app.useGlobalPipes(
@@ -633,6 +748,51 @@ async function bootstrap() {
   await app.listen(process.env.PORT ?? 3000);
 }
 ```
+
+### Extracting the OpenAPI config — `swagger.config.ts`
+
+Don't build the `DocumentBuilder` chain inline in `main.ts`. Extract it into
+`src/swagger.config.ts` so it can be imported anywhere that needs the OpenAPI
+spec without re-initializing the builder:
+
+```typescript
+// src/swagger.config.ts
+import { DocumentBuilder } from "@nestjs/swagger";
+
+export function buildSwaggerConfig() {
+  return new DocumentBuilder()
+    .setTitle("My API")
+    .setDescription("API description")
+    .setVersion("1.0")
+    .addServer("http://localhost:3000", "Local development")
+    .addServer("https://api.example.com", "Production")
+    .addSecurity("api-key", {
+      type: "apiKey",
+      in: "header",
+      name: "x-api-key",
+    })
+    .build();
+}
+```
+
+```typescript
+// main.ts
+import { buildSwaggerConfig } from "./swagger.config.js";
+
+const document = SwaggerModule.createDocument(app, buildSwaggerConfig());
+
+// Serve raw spec for external tooling — SDK generators, MCP, Postman import
+app.use("/openapi.json", (_req: Request, res: Response) => res.json(document));
+
+// Scalar UI in dev only
+if (process.env.NODE_ENV !== "production") {
+  app.use("/docs", apiReference({ content: document }));
+}
+```
+
+This also enables environment-aware docs: Scalar renders in dev (relaxed CSP),
+nothing is exposed in production (strict CSP, no UI). See `nestjs-security` for
+the exact Helmet config that supports this split.
 
 ### Global enhancers with dependency injection
 
