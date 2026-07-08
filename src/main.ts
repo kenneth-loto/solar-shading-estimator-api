@@ -95,7 +95,8 @@ async function bootstrap() {
 
   app.enableShutdownHooks();
 
-  const swaggerConfig = buildSwaggerConfig();
+  const port = configService.getOrThrow("PORT");
+  const swaggerConfig = buildSwaggerConfig(port);
   const document = SwaggerModule.createDocument(app, swaggerConfig);
 
   app.use("/openapi.json", (_req: Request, res: Response) => {
@@ -106,6 +107,6 @@ async function bootstrap() {
     app.use("/docs", apiReference({ content: document }));
   }
 
-  await app.listen(configService.getOrThrow("PORT"));
+  await app.listen(port);
 }
 bootstrap();
