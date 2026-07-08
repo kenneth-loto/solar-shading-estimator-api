@@ -38,6 +38,7 @@ obstruction model.** No 3D geometry, no per-panel modeling, no LIDAR.
 - [x] 4. Simplified Shading Calculation
 - [x] 5. Combined Analysis Endpoint
 - [x] 6. Rate Limiting
+- [x] 7. Persisted Analysis History
 
 ---
 
@@ -191,6 +192,91 @@ on a publicly-deployed endpoint.
 - Per-IP is fine for MVP (no auth, so no per-user concept yet). Revisit if
   an API-key gate gets added later.
 
+### 7. Persisted Analysis History
+
+Persist each `POST /sites/:id/analysis` result instead of returning it
+ephemerally, so a site's shading/production estimates have real history.
+
+**Why this one next:** highest-value, zero-new-infra addition — Postgres
+is already provisioned, fits existing Prisma + Nest patterns directly,
+and fixes a real gap (results currently vanish, nothing is retrievable
+after the initial response). Chosen over hourly PVWatts (touches a
+working feature for marginal gain) and BullMQ (needs Redis infra not
+otherwise needed yet).
+
+**Tasks:**
+
+### Prisma
+
+- [x] Add `Analysis` model to `prisma/models/analysis.prisma`:
+  ```
+  model Analysis {
+    id        String   @id @default(cuid())
+    siteId    String
+    site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+    result    Json
+    createdAt DateTime @default(now())
+  }
+  ```
+  Run `bun run db:migrate` + `bun run db:generate`.
+
+### Service
+
+- [x] In `AnalysisService`, inject `PrismaService`. After computing the
+      `AnalysisResult` in `analyze()`, persist it to the `Analysis` table
+      (as JSON) before returning. Return type stays `AnalysisResult` —
+      the `POST` response shape does not change.
+
+### Controller — new endpoints
+
+- [x] `GET /sites/:id/analyses` — list past analyses for a site, most
+      recent first. Public (no `ApiKeyGuard`, matching existing read
+      pattern). Returns `{ statusCode, message, data: AnalysisRecordDataDto[] }`.
+- [x] `GET /analyses/:analysisId` — get a single analysis by its ID.
+      Add a new `AnalysesController` with `@Controller("analyses")` in
+      the same module (separate file, clean routing). Public. Returns
+      `{ statusCode, message, data: AnalysisRecordDataDto }`.
+
+### DTOs (new file: `analysis-record.dto.ts`)
+
+- [x] `AnalysisRecordDataDto` — `id`, `siteId`, `createdAt`, plus the
+      full nested result shape (reuses `BaselineDto`, `ShadingDto`,
+      `AdjustedDto` from `analysis-response.dto.ts`).
+- [x] `AnalysisRecordListResponseDto` — envelope with `data: AnalysisRecordDataDto[]`.
+- [x] `AnalysisRecordResponseDto` — envelope with `data: AnalysisRecordDataDto | null`.
+- [x] `AnalysisRecordNotFoundResponseDto` — 404 error DTO (covered by existing `ErrorResponseDto`).
+
+### Swagger
+
+- [x] `@ApiOperation`, `@ApiOkResponse`, `@ApiResponse` (404) on both
+      new endpoints.
+
+### Tests
+
+- [x] `analysis.service.spec.ts` — verify `prisma.analysis.create` is
+      called with the computed result after `analyze()` returns.
+- [x] `analysis-history.controller.spec.ts` (new) — list returns records
+      ordered by createdAt desc, get-by-id returns record, get-by-id
+      returns 404 for missing ID.
+- [x] Verify cascade delete: when a `Site` is deleted, its analyses are
+      also removed (e2e or integration test).
+
+**Design decisions:**
+
+- **Store the full response as JSON**, not just key numbers — the
+  sample-day shading breakdown is the interesting part of "history" (e.g.
+  comparing shading estimates before/after describing a new obstruction).
+  Prisma's `Json` column type makes this cheap without a rigid schema.
+- **Unlimited history, no cap per site.** Already rate-limited to 10
+  req/min on the analysis route; single-user/demo scope; Postgres handles
+  this volume of small JSON rows easily. A retention cap is a clean,
+  isolated follow-up if this ever becomes a real problem — not worth
+  solving preemptively.
+- **Flat `/analyses/:id` route** over nested `/sites/:id/analyses/:id` —
+  simpler URL, separate controller, no ambiguity.
+- **GET endpoints are public** — follows the existing pattern (all read
+  endpoints are unguarded). The mutation (`POST`) retains `ApiKeyGuard`.
+
 ---
 
 ## Implementation Notes (as-built deviations from plan)
@@ -203,6 +289,9 @@ on a publicly-deployed endpoint.
   PVWatts standard) rather than hardcoded.
 - All responses wrapped in a standard `{ statusCode, message, data }`
   envelope via a global interceptor.
+- `POST /sites/:id/analysis` explicitly returns HTTP 200 (`@HttpCode(HttpStatus.OK)`)
+  instead of NestJS's default 201 — the endpoint is a computation with a
+  persistence side effect, not a resource creation.
 
 ## Hardening / Pre-Deploy Checklist
 
@@ -246,8 +335,7 @@ deploying to Render.
 - Full 365-day hour-by-hour simulation (sample days only)
 - Real 3D geometry / building footprints / LIDAR
 - Partial/soft shading, tree seasonality
-- Frontend (API + Swagger docs only for MVP; frontend is a stretch goal)
-- Persistent historical tracking / comparing sites over time
+- Frontend (API + docs only for MVP; frontend is a stretch goal)
 - Caching infrastructure beyond a simple in-memory or DB cache
 
 ## Stretch Goals (post-MVP, in rough priority order)
@@ -255,7 +343,6 @@ deploying to Render.
 - [ ] Minimal frontend (location input + a couple of charts)
 - [ ] Hourly PVWatts resolution
 - [ ] BullMQ queue for batch site analysis
-- [ ] Persisted analysis history per site
 - [ ] Finer-grained horizon profile (more than 8 directions)
 
 ## Suggested Nest Module Breakdown
@@ -266,4 +353,5 @@ deploying to Render.
 - `pvwatts/` — PVWatts client
 - `shading/` — solar position math + horizon comparison (pure logic, no
   external calls — easiest to unit test)
-- `analysis/` — orchestrates the above into one report
+- `analysis/` — orchestrates the above into one report, plus persisted
+  history (Feature 7)

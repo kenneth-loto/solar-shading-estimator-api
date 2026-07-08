@@ -1,5 +1,5 @@
 model Site {
-  id             String   @id @default(cuid())
+  id             String     @id @default(cuid())
   name           String
   latitude       Float
   longitude      Float
@@ -7,6 +7,7 @@ model Site {
   panelAzimuth   Float
   systemSize     Float
   horizonProfile Json
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  analyses       Analysis[]
 }

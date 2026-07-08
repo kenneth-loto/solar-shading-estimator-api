@@ -1,6 +1,7 @@
 import { jest } from "@jest/globals";
 import { Test, TestingModule } from "@nestjs/testing";
-import type { Site } from "../../generated/prisma/client.js";
+import type { PrismaClient, Site } from "../../generated/prisma/client.js";
+import { PrismaService } from "../../lib/database/prisma.service.js";
 import type { PvWattsResult } from "../pvwatts/interfaces/pvwatts.interfaces.js";
 import { PvWattsService } from "./../pvwatts/pvwatts.service.js";
 import type {
@@ -68,13 +69,51 @@ const mockShadingResult: ShadingResult = {
   averageShadingLoss: 38.33,
 };
 
+const mockAnalysisRecord = {
+  id: "analysis-1",
+  siteId: "site-1",
+  result: {
+    siteId: "site-1",
+    siteName: "Test Roof",
+    baseline: mockPvWattsResult,
+    shading: mockShadingResult,
+    adjusted: {
+      adjustedAnnual: 4737,
+      adjustedMonthly: [
+        322, 364, 421, 416, 444, 442, 438, 416, 384, 361, 305, 301,
+      ],
+    },
+  },
+  createdAt: new Date("2026-07-08"),
+};
+
+function createMockPrismaService() {
+  const mockAnalysis = {
+    create: jest
+      .fn<() => Promise<typeof mockAnalysisRecord>>()
+      .mockResolvedValue(mockAnalysisRecord),
+    findMany: jest
+      .fn<() => Promise<(typeof mockAnalysisRecord)[]>>()
+      .mockResolvedValue([mockAnalysisRecord]),
+    findUnique: jest
+      .fn<() => Promise<typeof mockAnalysisRecord | null>>()
+      .mockResolvedValue(mockAnalysisRecord),
+  };
+  return { analysis: mockAnalysis } as unknown as jest.Mocked<
+    Pick<PrismaClient, "analysis">
+  >;
+}
+
 describe("AnalysisService", () => {
   let service: AnalysisService;
   let sitesService: jest.Mocked<SitesService>;
   let pvWattsService: jest.Mocked<PvWattsService>;
   let shadingService: jest.Mocked<ShadingService>;
+  let prisma: ReturnType<typeof createMockPrismaService>;
 
   beforeEach(async () => {
+    prisma = createMockPrismaService();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AnalysisService,
@@ -89,6 +128,10 @@ describe("AnalysisService", () => {
         {
           provide: ShadingService,
           useValue: { calculate: jest.fn() },
+        },
+        {
+          provide: PrismaService,
+          useValue: prisma,
         },
       ],
     }).compile();
@@ -252,6 +295,59 @@ describe("AnalysisService", () => {
       expect(result.adjusted.adjustedAnnual).toBe(0);
       expect(result.adjusted.adjustedMonthly).toEqual(
         mockPvWattsResult.ac_monthly.map(() => 0),
+      );
+    });
+
+    it("persists the result to the database after computing", async () => {
+      sitesService.findById.mockResolvedValue(mockSite);
+      pvWattsService.estimate.mockResolvedValue(mockPvWattsResult);
+      shadingService.calculate.mockReturnValue(mockShadingResult);
+
+      await service.analyze("site-1");
+
+      expect(prisma.analysis.create).toHaveBeenCalledTimes(1);
+      expect(prisma.analysis.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            siteId: "site-1",
+            result: expect.objectContaining({
+              siteId: "site-1",
+              siteName: "Test Roof",
+            }),
+          }),
+        }),
+      );
+    });
+  });
+
+  describe("findBySiteId", () => {
+    it("returns analyses for a site ordered by createdAt desc", async () => {
+      const records = await service.findBySiteId("site-1");
+
+      expect(prisma.analysis.findMany).toHaveBeenCalledWith({
+        where: { siteId: "site-1" },
+        orderBy: { createdAt: "desc" },
+      });
+      expect(records).toHaveLength(1);
+      expect(records[0].id).toBe("analysis-1");
+    });
+  });
+
+  describe("findById", () => {
+    it("returns an analysis by id", async () => {
+      const record = await service.findById("analysis-1");
+
+      expect(prisma.analysis.findUnique).toHaveBeenCalledWith({
+        where: { id: "analysis-1" },
+      });
+      expect(record.id).toBe("analysis-1");
+    });
+
+    it("throws NotFoundException when analysis does not exist", async () => {
+      prisma.analysis.findUnique.mockResolvedValue(null);
+
+      await expect(service.findById("nonexistent")).rejects.toThrow(
+        "Analysis nonexistent not found",
       );
     });
   });
