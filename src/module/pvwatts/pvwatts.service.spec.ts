@@ -16,7 +16,7 @@ const mockPvWattsResponse: PvWattsResponse = {
     tilt: 20,
     azimuth: 180,
     losses: 14,
-    timeframe: "monthly",
+    timeframe: "hourly",
   },
   errors: [],
   warnings: [],
@@ -38,6 +38,9 @@ const mockPvWattsResponse: PvWattsResponse = {
     solrad_monthly: [
       4.5, 5.2, 6.1, 6.5, 7.2, 7.5, 7.8, 7.0, 6.0, 5.0, 4.2, 3.8,
     ],
+    ac_hourly: new Array(8760)
+      .fill(0)
+      .map((_, i) => 0.5 + Math.sin(i / 100) * 0.5),
     ac_annual: 7683,
     solrad_annual: 5.9,
     capacity_factor: 21.9,
@@ -91,6 +94,7 @@ describe("PvWattsService", () => {
 
       expect(result.ac_annual).toBe(7683);
       expect(result.ac_monthly).toHaveLength(12);
+      expect(result.ac_hourly).toHaveLength(8760);
       expect(result.capacity_factor).toBe(21.9);
       expect(result.kwh_per_kw).toBe(1921);
       expect(result.station_info).toBeDefined();
@@ -103,7 +107,7 @@ describe("PvWattsService", () => {
       expect(callUrl).toContain("azimuth=180");
       expect(callUrl).toContain("system_capacity=4");
       expect(callUrl).toContain("losses=14");
-      expect(callUrl).toContain("timeframe=monthly");
+      expect(callUrl).toContain("timeframe=hourly");
 
       mockFetch.mockRestore();
     });

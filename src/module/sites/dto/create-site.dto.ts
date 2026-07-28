@@ -67,7 +67,7 @@ export class CreateSiteDto {
   systemSize: number;
 
   @ApiProperty({
-    description: "Horizon profile (4–8 entries)",
+    description: "Horizon profile (4–16 entries)",
     type: [HorizonProfileEntry],
     example: [
       { direction: "N", heightAngle: 15 },
@@ -78,7 +78,7 @@ export class CreateSiteDto {
   })
   @IsArray()
   @ArrayMinSize(4)
-  @ArrayMaxSize(8)
+  @ArrayMaxSize(16)
   @ValidateNested({ each: true })
   @Type(() => HorizonProfileEntry)
   horizonProfile: HorizonProfileEntry[];

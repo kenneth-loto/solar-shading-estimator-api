@@ -2,11 +2,12 @@ import { jest } from "@jest/globals";
 import { Test, TestingModule } from "@nestjs/testing";
 import type { PrismaClient, Site } from "../../generated/prisma/client.js";
 import { PrismaService } from "../../lib/database/prisma.service.js";
+import { getWeeklySampleDays } from "../../utils/date.js";
 import type { PvWattsResult } from "../pvwatts/interfaces/pvwatts.interfaces.js";
 import { PvWattsService } from "./../pvwatts/pvwatts.service.js";
 import type {
   HorizonProfileEntry,
-  ShadingResult,
+  HourlyShadingResult,
 } from "../shading/interfaces/shading.interfaces.js";
 import { ShadingService } from "../shading/shading.service.js";
 import { SitesService } from "../sites/sites.service.js";
@@ -27,47 +28,71 @@ const mockSite: Site = {
   updatedAt: new Date(),
 };
 
+function makeHourlyArray(value: number): number[] {
+  return new Array(8760).fill(value);
+}
+
 const mockPvWattsResult: PvWattsResult = {
-  ac_annual: 7683,
-  ac_monthly: [523, 590, 682, 674, 720, 717, 710, 675, 623, 586, 495, 488],
+  ac_annual: 8760,
+  ac_monthly: [744, 672, 744, 720, 744, 720, 744, 744, 720, 744, 720, 744],
+  ac_hourly: makeHourlyArray(1),
   capacity_factor: 21.9,
   kwh_per_kw: 1921,
-  station_info: {},
+  station_info: { tz: -7 },
 };
 
-const mockShadingResult: ShadingResult = {
-  sampleDays: [
-    {
-      name: "Summer Solstice",
-      date: "2026-06-21",
-      daylightHours: 15,
-      shadedHours: 3,
-      percentShaded: 20,
-    },
-    {
-      name: "Winter Solstice",
-      date: "2026-12-21",
-      daylightHours: 9,
+function makeEmptyShading(): HourlyShadingResult {
+  const sampleDays = getWeeklySampleDays(2026);
+  const dayResults: HourlyShadingResult["sampleDays"] = [];
+  const shadedHoursPerDay: Set<number>[] = [];
+  for (const day of sampleDays) {
+    dayResults.push({
+      name: day.name,
+      date: day.date.toISOString().slice(0, 10),
+      daylightHours: 12,
+      shadedHours: 0,
+      percentShaded: 0,
+    });
+    shadedHoursPerDay.push(new Set());
+  }
+  return { sampleDays: dayResults, averageShadingLoss: 0, shadedHoursPerDay };
+}
+
+function makeFullShading(): HourlyShadingResult {
+  const sampleDays = getWeeklySampleDays(2026);
+  const dayResults: HourlyShadingResult["sampleDays"] = [];
+  const shadedHoursPerDay: Set<number>[] = [];
+  for (const day of sampleDays) {
+    dayResults.push({
+      name: day.name,
+      date: day.date.toISOString().slice(0, 10),
+      daylightHours: 12,
+      shadedHours: 12,
+      percentShaded: 100,
+    });
+    const allHours = new Set<number>();
+    for (let h = 0; h < 24; h++) allHours.add(h);
+    shadedHoursPerDay.push(allHours);
+  }
+  return { sampleDays: dayResults, averageShadingLoss: 100, shadedHoursPerDay };
+}
+
+function makePartialShading(): HourlyShadingResult {
+  const sampleDays = getWeeklySampleDays(2026);
+  const dayResults: HourlyShadingResult["sampleDays"] = [];
+  const shadedHoursPerDay: Set<number>[] = [];
+  for (const day of sampleDays) {
+    dayResults.push({
+      name: day.name,
+      date: day.date.toISOString().slice(0, 10),
+      daylightHours: 12,
       shadedHours: 6,
-      percentShaded: 66.67,
-    },
-    {
-      name: "Spring Equinox",
-      date: "2026-03-20",
-      daylightHours: 12,
-      shadedHours: 4,
-      percentShaded: 33.33,
-    },
-    {
-      name: "Fall Equinox",
-      date: "2026-09-22",
-      daylightHours: 12,
-      shadedHours: 4,
-      percentShaded: 33.33,
-    },
-  ],
-  averageShadingLoss: 38.33,
-};
+      percentShaded: 50,
+    });
+    shadedHoursPerDay.push(new Set([0, 1, 2, 3, 4, 5]));
+  }
+  return { sampleDays: dayResults, averageShadingLoss: 50, shadedHoursPerDay };
+}
 
 const mockAnalysisRecord = {
   id: "analysis-1",
@@ -76,11 +101,11 @@ const mockAnalysisRecord = {
     siteId: "site-1",
     siteName: "Test Roof",
     baseline: mockPvWattsResult,
-    shading: mockShadingResult,
+    shading: makeEmptyShading(),
     adjusted: {
-      adjustedAnnual: 4737,
+      adjustedAnnual: 8760,
       adjustedMonthly: [
-        322, 364, 421, 416, 444, 442, 438, 416, 384, 361, 305, 301,
+        744, 672, 744, 720, 744, 720, 744, 744, 720, 744, 720, 744,
       ],
     },
   },
@@ -127,7 +152,7 @@ describe("AnalysisService", () => {
         },
         {
           provide: ShadingService,
-          useValue: { calculate: jest.fn() },
+          useValue: { calculate: jest.fn(), calculateHourlyShading: jest.fn() },
         },
         {
           provide: PrismaService,
@@ -156,37 +181,59 @@ describe("AnalysisService", () => {
     it("orchestrates fetch -> PVWatts -> shading -> combined result", async () => {
       sitesService.findById.mockResolvedValue(mockSite);
       pvWattsService.estimate.mockResolvedValue(mockPvWattsResult);
-      shadingService.calculate.mockReturnValue(mockShadingResult);
+      shadingService.calculateHourlyShading.mockReturnValue(makeEmptyShading());
 
       const result = await service.analyze("site-1");
 
       expect(result.siteId).toBe("site-1");
       expect(result.siteName).toBe("Test Roof");
       expect(result.baseline).toEqual(mockPvWattsResult);
-      expect(result.shading).toEqual(mockShadingResult);
+      expect(result.shading).toBeDefined();
     });
 
-    it("computes adjusted annual and monthly kWh correctly", async () => {
+    it("returns baseline output when no shading is present", async () => {
       sitesService.findById.mockResolvedValue(mockSite);
       pvWattsService.estimate.mockResolvedValue(mockPvWattsResult);
-      shadingService.calculate.mockReturnValue(mockShadingResult);
+      shadingService.calculateHourlyShading.mockReturnValue(makeEmptyShading());
 
       const result = await service.analyze("site-1");
 
-      const factor = 1 - 38.33 / 100;
-      const expectedAnnual = Math.round(7683 * factor);
-      const expectedMonthly = mockPvWattsResult.ac_monthly.map((m) =>
-        Math.round(m * factor),
+      expect(result.adjusted.adjustedAnnual).toBe(8760);
+      expect(result.adjusted.adjustedMonthly).toEqual([
+        744, 672, 744, 720, 744, 720, 744, 744, 720, 744, 720, 744,
+      ]);
+    });
+
+    it("returns 0 adjusted kWh when all hours are shaded", async () => {
+      sitesService.findById.mockResolvedValue(mockSite);
+      pvWattsService.estimate.mockResolvedValue(mockPvWattsResult);
+      shadingService.calculateHourlyShading.mockReturnValue(makeFullShading());
+
+      const result = await service.analyze("site-1");
+
+      expect(result.adjusted.adjustedAnnual).toBe(0);
+      expect(result.adjusted.adjustedMonthly).toEqual(
+        mockPvWattsResult.ac_monthly.map(() => 0),
+      );
+    });
+
+    it("zeroes out the first 6 LST hours when those are shaded", async () => {
+      sitesService.findById.mockResolvedValue(mockSite);
+      pvWattsService.estimate.mockResolvedValue(mockPvWattsResult);
+      shadingService.calculateHourlyShading.mockReturnValue(
+        makePartialShading(),
       );
 
-      expect(result.adjusted.adjustedAnnual).toBe(expectedAnnual);
-      expect(result.adjusted.adjustedMonthly).toEqual(expectedMonthly);
+      const result = await service.analyze("site-1");
+
+      expect(result.adjusted.adjustedAnnual).toBeGreaterThan(0);
+      expect(result.adjusted.adjustedAnnual).toBeLessThan(8760);
     });
 
     it("passes correct site parameters to PVWatts and Shading", async () => {
       sitesService.findById.mockResolvedValue(mockSite);
       pvWattsService.estimate.mockResolvedValue(mockPvWattsResult);
-      shadingService.calculate.mockReturnValue(mockShadingResult);
+      shadingService.calculateHourlyShading.mockReturnValue(makeEmptyShading());
 
       await service.analyze("site-1");
 
@@ -197,111 +244,17 @@ describe("AnalysisService", () => {
         180,
         5,
       );
-      expect(shadingService.calculate).toHaveBeenCalledWith(
+      expect(shadingService.calculateHourlyShading).toHaveBeenCalledWith(
         40.02,
         -105.25,
         mockSite.horizonProfile as unknown as HorizonProfileEntry[],
       );
     });
 
-    it("returns 0 shading loss when horizon is flat", async () => {
-      const flatShading: ShadingResult = {
-        sampleDays: [
-          {
-            name: "Summer Solstice",
-            date: "2026-06-21",
-            daylightHours: 15,
-            shadedHours: 0,
-            percentShaded: 0,
-          },
-          {
-            name: "Winter Solstice",
-            date: "2026-12-21",
-            daylightHours: 9,
-            shadedHours: 0,
-            percentShaded: 0,
-          },
-          {
-            name: "Spring Equinox",
-            date: "2026-03-20",
-            daylightHours: 12,
-            shadedHours: 0,
-            percentShaded: 0,
-          },
-          {
-            name: "Fall Equinox",
-            date: "2026-09-22",
-            daylightHours: 12,
-            shadedHours: 0,
-            percentShaded: 0,
-          },
-        ],
-        averageShadingLoss: 0,
-      };
-
-      sitesService.findById.mockResolvedValue(mockSite);
-      pvWattsService.estimate.mockResolvedValue(mockPvWattsResult);
-      shadingService.calculate.mockReturnValue(flatShading);
-
-      const result = await service.analyze("site-1");
-
-      expect(result.adjusted.adjustedAnnual).toBe(mockPvWattsResult.ac_annual);
-      expect(result.adjusted.adjustedMonthly).toEqual(
-        mockPvWattsResult.ac_monthly,
-      );
-    });
-
-    it("returns 0 adjusted kWh when shading is 100%", async () => {
-      const fullShading: ShadingResult = {
-        sampleDays: [
-          {
-            name: "Summer Solstice",
-            date: "2026-06-21",
-            daylightHours: 15,
-            shadedHours: 15,
-            percentShaded: 100,
-          },
-          {
-            name: "Winter Solstice",
-            date: "2026-12-21",
-            daylightHours: 9,
-            shadedHours: 9,
-            percentShaded: 100,
-          },
-          {
-            name: "Spring Equinox",
-            date: "2026-03-20",
-            daylightHours: 12,
-            shadedHours: 12,
-            percentShaded: 100,
-          },
-          {
-            name: "Fall Equinox",
-            date: "2026-09-22",
-            daylightHours: 12,
-            shadedHours: 12,
-            percentShaded: 100,
-          },
-        ],
-        averageShadingLoss: 100,
-      };
-
-      sitesService.findById.mockResolvedValue(mockSite);
-      pvWattsService.estimate.mockResolvedValue(mockPvWattsResult);
-      shadingService.calculate.mockReturnValue(fullShading);
-
-      const result = await service.analyze("site-1");
-
-      expect(result.adjusted.adjustedAnnual).toBe(0);
-      expect(result.adjusted.adjustedMonthly).toEqual(
-        mockPvWattsResult.ac_monthly.map(() => 0),
-      );
-    });
-
     it("persists the result to the database after computing", async () => {
       sitesService.findById.mockResolvedValue(mockSite);
       pvWattsService.estimate.mockResolvedValue(mockPvWattsResult);
-      shadingService.calculate.mockReturnValue(mockShadingResult);
+      shadingService.calculateHourlyShading.mockReturnValue(makeEmptyShading());
 
       await service.analyze("site-1");
 

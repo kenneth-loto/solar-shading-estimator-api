@@ -15,3 +15,9 @@ export interface ShadingResult {
   sampleDays: SampleDayResult[];
   averageShadingLoss: number;
 }
+
+export interface HourlyShadingResult {
+  sampleDays: SampleDayResult[];
+  averageShadingLoss: number;
+  shadedHoursPerDay: Set<number>[];
+}

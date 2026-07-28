@@ -127,4 +127,48 @@ describe("ShadingService", () => {
       expect(result.sampleDays).toHaveLength(4);
     });
   });
+
+  describe("calculateHourlyShading", () => {
+    const boulder: [number, number] = [40.02, -105.25];
+    const flatHorizon: HorizonProfileEntry[] = [
+      { direction: "N", heightAngle: 0 },
+      { direction: "E", heightAngle: 0 },
+      { direction: "S", heightAngle: 0 },
+      { direction: "W", heightAngle: 0 },
+    ];
+
+    it("returns 52 sample days with shadedHoursPerDay", () => {
+      const result = service.calculateHourlyShading(...boulder, flatHorizon);
+
+      expect(result.sampleDays).toHaveLength(52);
+      expect(result.shadedHoursPerDay).toHaveLength(52);
+      expect(result.averageShadingLoss).toBeGreaterThanOrEqual(0);
+      expect(result.averageShadingLoss).toBeLessThanOrEqual(100);
+    });
+
+    it("returns empty shaded sets with flat horizon", () => {
+      const result = service.calculateHourlyShading(...boulder, flatHorizon);
+
+      expect(result.averageShadingLoss).toBe(0);
+      for (const set of result.shadedHoursPerDay) {
+        expect(set.size).toBe(0);
+      }
+    });
+
+    it("returns all daylight hours shaded with full obstruction", () => {
+      const obstructed: HorizonProfileEntry[] = [
+        { direction: "N", heightAngle: 90 },
+        { direction: "E", heightAngle: 90 },
+        { direction: "S", heightAngle: 90 },
+        { direction: "W", heightAngle: 90 },
+      ];
+
+      const result = service.calculateHourlyShading(...boulder, obstructed);
+
+      expect(result.averageShadingLoss).toBe(100);
+      for (const day of result.sampleDays) {
+        expect(day.percentShaded).toBe(100);
+      }
+    });
+  });
 });
