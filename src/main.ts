@@ -97,14 +97,24 @@ async function bootstrap() {
 
   const port = configService.getOrThrow("PORT");
   const swaggerConfig = buildSwaggerConfig(port);
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  const fullDocument = SwaggerModule.createDocument(app, swaggerConfig);
+
+  const externalDocument = {
+    ...fullDocument,
+    servers: [
+      {
+        url: "https://solar-shading-estimator-api.onrender.com",
+        description: "Production",
+      },
+    ],
+  };
 
   app.use("/openapi.json", (_req: Request, res: Response) => {
-    res.json(document);
+    res.json(externalDocument);
   });
 
   if (process.env.NODE_ENV !== "production") {
-    app.use("/docs", apiReference({ content: document }));
+    app.use("/docs", apiReference({ content: fullDocument }));
   }
 
   await app.listen(port);

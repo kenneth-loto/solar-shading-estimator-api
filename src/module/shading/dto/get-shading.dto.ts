@@ -45,7 +45,7 @@ export class GetShadingDto {
   longitude: number;
 
   @ApiProperty({
-    description: "Horizon profile (4–8 compass direction entries)",
+    description: "Horizon profile (4–16 compass direction entries)",
     type: [ShadingHorizonProfileEntry],
     example: [
       { direction: "N", heightAngle: 15 },
@@ -56,7 +56,7 @@ export class GetShadingDto {
   })
   @IsArray()
   @ArrayMinSize(4)
-  @ArrayMaxSize(8)
+  @ArrayMaxSize(16)
   @ValidateNested({ each: true })
   @Type(() => ShadingHorizonProfileEntry)
   horizonProfile: ShadingHorizonProfileEntry[];

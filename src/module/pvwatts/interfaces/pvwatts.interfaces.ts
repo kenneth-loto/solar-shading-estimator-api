@@ -13,6 +13,7 @@ export interface PvWattsOutputs {
   poa_monthly: number[];
   dc_monthly: number[];
   solrad_monthly: number[];
+  ac_hourly: number[];
   ac_annual: number;
   solrad_annual: number;
   capacity_factor: number;
@@ -22,6 +23,7 @@ export interface PvWattsOutputs {
 export interface PvWattsResult {
   ac_annual: number;
   ac_monthly: number[];
+  ac_hourly?: number[];
   capacity_factor: number;
   kwh_per_kw: number;
   station_info: Record<string, unknown>;

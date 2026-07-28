@@ -34,7 +34,7 @@ export class PvWattsService {
     systemSize: number,
     losses = 14,
   ): Promise<PvWattsResult> {
-    const cacheKey = `pvwatts:${latitude}:${longitude}:${tilt}:${azimuth}:${systemSize}:${losses}`;
+    const cacheKey = `pvwatts:hourly:${latitude}:${longitude}:${tilt}:${azimuth}:${systemSize}:${losses}`;
 
     const cached = await this.cacheManager.get<PvWattsResult>(cacheKey);
 
@@ -45,7 +45,7 @@ export class PvWattsService {
 
     this.logger.log(`Cache miss for ${cacheKey} — fetching from PVWatts`);
 
-    const url = `${this.apiUrl}.json?api_key=${this.apiKey}&lat=${latitude}&lon=${longitude}&system_capacity=${systemSize}&module_type=0&array_type=0&tilt=${tilt}&azimuth=${azimuth}&losses=${losses}&timeframe=monthly`;
+    const url = `${this.apiUrl}.json?api_key=${this.apiKey}&lat=${latitude}&lon=${longitude}&system_capacity=${systemSize}&module_type=0&array_type=0&tilt=${tilt}&azimuth=${azimuth}&losses=${losses}&timeframe=hourly`;
 
     const redactedUrl = url.replace(this.apiKey, "[REDACTED]");
 
@@ -72,6 +72,7 @@ export class PvWattsService {
     const result: PvWattsResult = {
       ac_annual: raw.outputs.ac_annual,
       ac_monthly: raw.outputs.ac_monthly,
+      ac_hourly: raw.outputs.ac_hourly,
       capacity_factor: raw.outputs.capacity_factor,
       kwh_per_kw: raw.outputs.kwh_per_kw,
       station_info: raw.station_info,
