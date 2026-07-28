@@ -331,19 +331,18 @@ deploying to Render.
 ## Explicitly Out of Scope for MVP
 
 - Authentication / multi-user accounts
-- Hourly-resolution PVWatts (monthly is enough)
-- Full 365-day hour-by-hour simulation (sample days only)
+- Full 365-day hour-by-hour simulation (52 weekly sample days is the resolution)
 - Real 3D geometry / building footprints / LIDAR
-- Partial/soft shading, tree seasonality
+- Partial/soft shading, tree seasonality (shaded hour = 0% production simplification)
 - Frontend (API + docs only for MVP; frontend is a stretch goal)
 - Caching infrastructure beyond a simple in-memory or DB cache
 
 ## Stretch Goals (post-MVP, in rough priority order)
 
+- [x] Finer-grained horizon profile (4–16 compass directions instead of 4–8)
+- [x] Hourly PVWatts resolution + per-hour shading correlation (52 weekly sample days)
 - [ ] Minimal frontend (location input + a couple of charts)
-- [ ] Hourly PVWatts resolution
 - [ ] BullMQ queue for batch site analysis
-- [ ] Finer-grained horizon profile (more than 8 directions)
 
 ## Suggested Nest Module Breakdown
 
